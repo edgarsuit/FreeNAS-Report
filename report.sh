@@ -1,7 +1,7 @@
 #!/bin/bash
 
 ###### Email Address ######
-email="london.freenas@gmail.com"
+email="ENTER EMAIL ADDRESS"
 
 ### User-editable Parameters ###
 tempWarn=40
