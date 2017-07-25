@@ -1,14 +1,10 @@
-# FreeNAS-Report
-SMART &amp; ZPool Status Report for FreeNAS
-
-Enter your email address on line 4, feel free to edit any of the parameters in the user-editable parameters section as well.
-
 # ZPool & SMART status report with FreeNAS config backup
 Original script by joeschmuck, modified by Bidelu0hm, then by melp
-Version: v1.1
+Enter your email address on line 30, feel free to edit any of the parameters in the user-editable parameters section as well.
 
-# Changelog:
-v1.1:
+**Version: v1.1**
+**Changelog:**
+*v1.1:*
 - Config backup now attached to report email
 - Option to save backup configs in a specified directory
 - Power-on hours in SMART summary table now listed as YY-MM-DD-HH
@@ -20,9 +16,9 @@ v1.1:
 - Reformatted user-definable parameters section
 - Added more general comments to code
 
-v1.0:
+*v1.0:*
 - Initial release
 
-# TODO:
+**TODO:**
 - Fix SSD SMART reporting
 - Run through shellcheck and fix stuff
