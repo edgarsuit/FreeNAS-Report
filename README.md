@@ -19,6 +19,7 @@ v1.1:
 - Added most recent Extended & Short SMART tests in drive details section (only listed one before, whichever was more recent)
 - Reformatted user-definable parameters section
 - Added more general comments to code
+
 v1.0:
 - Initial release
 
