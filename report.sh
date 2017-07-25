@@ -51,7 +51,7 @@ testAgeWarn=5			# Maximum age (in days) of last SMART test before CRITICAL color
 
 ### FreeNAS config backup settings
 configBackup="true"		# Change to "false" to skip config backup (which renders next two options meaningless); "true" to keep config backups enabled
-saveBackup="false"		# Change to "true" to save FreeNAS config backup after mail is sent; "false" to delete them
+saveBackup="false"		# Change to "true" to save FreeNAS config backup (to below dir) after mail is sent; "false" to delete them
 backupLocation="/path/to/save/backups/"	# Directory in which to save FreeNAS config backups
 
 
