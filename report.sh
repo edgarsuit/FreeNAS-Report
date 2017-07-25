@@ -3,6 +3,8 @@
 ###### ZPool & SMART status report with FreeNAS config backup
 ### Original script by joeschmuck, modified by Bidelu0hm, then by melp
 
+### At a minimum, enter email address on line 30. Feel free to edit other user parameters as needed.
+
 ### Version: v1.1
 ### Changelog:
 # v1.1:
@@ -26,7 +28,7 @@
 
 ###### User-definable Parameters
 ### Email Address
-email="london.freenas@gmail.com"
+email="<EMAIL ADDRESS>"
 
 ### Global table colors
 okColor="#c9ffcc"		# Hex code for color to use in SMART Status column if drives pass (default is light green, #c9ffcc)
@@ -47,8 +49,8 @@ testAgeWarn=5			# Maximum age (in days) of last SMART test before CRITICAL color
 
 ### FreeNAS config backup settings
 configBackup="true"		# Change to "false" to skip config backup (which renders next two options meaningless); "true" to keep config backups enabled
-saveBackup="true"		# Change to "false" to delete FreeNAS config backup after mail is sent; "true" to keep it in dir below
-backupLocation="/mnt/tank/usr/jfr/config_backup/"	# Directory in which to save FreeNAS config backups
+saveBackup="false"		# Change to "true" to save FreeNAS config backup after mail is sent; "false" to delete them
+backupLocation="/path/to/save/backups/"	# Directory in which to save FreeNAS config backups
 
 
 ###### Auto-generated Parameters
