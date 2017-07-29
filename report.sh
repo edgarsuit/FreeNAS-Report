@@ -4,6 +4,7 @@
 ### Original script by joeschmuck, modified by Bidelu0hm, then by melp
 
 ### At a minimum, enter email address in user-definable parameter section. Feel free to edit other user parameters as needed.
+### If you find any errors, feel free to contact me on the FreeNAS forums (username melp) or email me at jason@jro.io.
 
 ### Version: v1.1
 ### Changelog:
@@ -62,11 +63,16 @@ subject="Status Report and Configuration Backup for ${host}"
 boundary="gc0p4Jq0M2Yt08jU534c0p"
 if ([ "$includeSSD" == "true" ]); then
 	drives=$(for drive in $(sysctl -n kern.disks); do \
-		if ([ "$(smartctl -i /dev/${drive} | grep "SMART support is: Enabled")" ]); then printf ${drive}" "; fi done | awk '{for (i=NF; i!=0 ; i--) print $i }')
+		if ([ "$(smartctl -i /dev/${drive} | grep "SMART support is: Enabled")" ]); then 
+			printf ${drive}" "; 
+		fi 
+	done | awk '{for (i=NF; i!=0 ; i--) print $i }')
 else
 	drives=$(for drive in $(sysctl -n kern.disks); do \
 		if ([ "$(smartctl -i /dev/${drive} | grep "SMART support is: Enabled")" ] && ! [ "$(smartctl -i /dev/${drive} | grep "Solid State Device")" ]); then
-			printf ${drive}" "; fi done | awk '{for (i=NF; i!=0 ; i--) print $i }')
+			printf ${drive}" "; 
+		fi 
+	done | awk '{for (i=NF; i!=0 ; i--) print $i }')
 fi
 pools=$(zpool list -H -o name)
 
