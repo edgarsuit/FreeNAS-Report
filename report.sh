@@ -4,7 +4,7 @@
 ### Original script by joeschmuck, modified by Bidelu0hm, then by melp
 
 ### At a minimum, enter email address in user-definable parameter section. Feel free to edit other user parameters as needed.
-### If you find any errors, feel free to contact me on the FreeNAS forums (username melp) or email me at jason@jro.io.
+### If you find any errors, feel free to contact me on the FreeNAS forums (username melp) or email me at jason at jro dot io.
 
 ### Version: v1.1
 ### Changelog:
