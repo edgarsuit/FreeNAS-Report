@@ -3,7 +3,7 @@ Original script by joeschmuck, modified by Bidelu0hm, then by melp
 
 Preview of the output here: http://i.imgur.com/t9Mtqyt.png
 
-**At a minimum, enter email address in user-definable parameter section.** Feel free to edit other user parameters as needed.
+**At a minimum, you will need to enter your email address in user-definable parameter section.** Feel free to edit other user parameters as needed.
 
 **Version: v1.1**
 
