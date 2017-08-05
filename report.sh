@@ -9,7 +9,7 @@
 ### Version: v1.2
 ### Changelog:
 # v1.2:
-#   - Added switch for power-on time format
+#   - Added switch for power-on time format 
 # v1.1:
 #   - Config backup now attached to report email
 #   - Added option to turn off config backup
