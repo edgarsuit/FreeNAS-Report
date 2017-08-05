@@ -5,9 +5,12 @@ Preview of the output here: http://i.imgur.com/t9Mtqyt.png
 
 **At a minimum, you will need to enter your email address in user-definable parameter section.** Feel free to edit other user parameters as needed.
 
-**Version: v1.1**
+**Version: v1.2**
 
 **Changelog:**
+
+*v1.2:*
+- Added switch for power-on time format
 
 *v1.1:*
 - Config backup now attached to report email
