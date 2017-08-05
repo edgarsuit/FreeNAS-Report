@@ -6,8 +6,10 @@
 ### At a minimum, enter email address in user-definable parameter section. Feel free to edit other user parameters as needed.
 ### If you find any errors, feel free to contact me on the FreeNAS forums (username melp) or email me at jason at jro dot io.
 
-### Version: v1.1
+### Version: v1.2
 ### Changelog:
+# v1.2:
+#   - Added switch for power-on time format
 # v1.1:
 #   - Config backup now attached to report email
 #   - Added option to turn off config backup
@@ -49,11 +51,12 @@ tempWarn=40             # Drive temp (in C) at which WARNING color will be used
 tempCrit=45             # Drive temp (in C) at which CRITICAL color will be used
 sectorsCrit=10          # Number of sectors per drive with errors before CRITICAL color will be used
 testAgeWarn=5           # Maximum age (in days) of last SMART test before CRITICAL color will be used
+powerTimeFormat="ymdh"  # Format for power-on hours string, valid options are "ymdh", "ymd", "ym", or "y" (year month day hour)
 
 ### FreeNAS config backup settings
 configBackup="true"     # Change to "false" to skip config backup (which renders next two options meaningless); "true" to keep config backups enabled
 saveBackup="true"       # Change to "false" to delete FreeNAS config backup after mail is sent; "true" to keep it in dir below
-backupLocation="/path/to/config/backup/"   # Directory in which to save FreeNAS config backups (Include traling "/")
+backupLocation="/path/to/config/backup"   # Directory in which to save FreeNAS config backups
 
 
 ###### Auto-generated Parameters
@@ -278,7 +281,7 @@ for drive in $drives; do
         # Finally, print the HTML code for the current row of the table with all the gathered data.
         smartctl -A -i /dev/"$drive" | \
         awk -v device="$drive" -v tempWarn="$tempWarn" -v tempCrit="$tempCrit" -v sectorsCrit="$sectorsCrit" -v testAgeWarn="$testAgeWarn" \
-        -v okColor="$okColor" -v warnColor="$warnColor" -v critColor="$critColor" -v altColor="$altColor" \
+        -v okColor="$okColor" -v warnColor="$warnColor" -v critColor="$critColor" -v altColor="$altColor" -v powerTimeFormat="$powerTimeFormat" \
         -v lastTestHours="$(smartctl -l selftest /dev/"$drive" | grep "# 1" | awk '{print $9}')" \
         -v lastTestType="$(smartctl -l selftest /dev/"$drive" | grep "# 1" | awk '{print $3}')" \
         -v smartStatus="$(smartctl -H /dev/"$drive" | grep "SMART overall-health" | awk '{print $6}')" ' \
@@ -299,7 +302,23 @@ for drive in $drives; do
             mos=int((onHours % 8760) / 730);
             dys=int(((onHours % 8760) % 730) / 24);
             hrs=((onHours % 8760) % 730) % 24;
-            onTime=yrs "y " mos "m " dys "d " hrs "h "
+            switch (powerTimeFormat) {
+                case "ymdh":
+                    onTime=yrs "y " mos "m " dys "d " hrs "h"
+                    break
+                case "ymd":
+                    onTime=yrs "y " mos "m " dys "d"
+                    break
+                case "ym":
+                    onTime=yrs "y " mos "m"
+                    break
+                case "y":
+                    onTime=yrs "y"
+                    break
+                default:
+                    onTime=yrs "y " mos "m " dys "d " hrs "h "
+                    break
+            }
             if ((substr(device,3) + 0) % 2 == 1) bgColor = "#ffffff"; else bgColor = altColor;
             if (smartStatus != "PASSED") smartStatusColor = critColor; else smartStatusColor = okColor;
             if (temp >= tempCrit) tempColor = critColor; else if (temp >= tempWarn) tempColor = warnColor; else tempColor = bgColor;
