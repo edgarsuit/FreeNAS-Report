@@ -63,15 +63,15 @@ subject="Status Report and Configuration Backup for ${host}"
 boundary="gc0p4Jq0M2Yt08jU534c0p"
 if ([ "$includeSSD" == "true" ]); then
     drives=$(for drive in $(sysctl -n kern.disks); do \
-        if ([ "$(smartctl -i /dev/${drive} | grep "SMART support is: Enabled")" ]); then
-            printf ${drive}" ";
-        fi
+        if ([ "$(smartctl -i /dev/${drive} | grep "SMART support is: Enabled")" ]); then 
+            printf ${drive}" "; 
+        fi 
     done | awk '{for (i=NF; i!=0 ; i--) print $i }')
 else
     drives=$(for drive in $(sysctl -n kern.disks); do \
         if ([ "$(smartctl -i /dev/${drive} | grep "SMART support is: Enabled")" ] && ! [ "$(smartctl -i /dev/${drive} | grep "Solid State Device")" ]); then
-            printf ${drive}" ";
-        fi
+            printf ${drive}" "; 
+        fi 
     done | awk '{for (i=NF; i!=0 ; i--) print $i }')
 fi
 pools=$(zpool list -H -o name)
