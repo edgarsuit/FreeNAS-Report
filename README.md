@@ -11,6 +11,9 @@ Preview of the output here: http://i.imgur.com/t9Mtqyt.png
 
 *v1.2:*
 - Added switch for power-on time format
+- Fixed some shellcheck errors
+- Added .tar.gz to backup file attached to email
+- (Still coming) Better SSD SMART support
 
 *v1.1:*
 - Config backup now attached to report email

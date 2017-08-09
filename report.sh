@@ -9,7 +9,10 @@
 ### Version: v1.2
 ### Changelog:
 # v1.2:
-#   - Added switch for power-on time format 
+#   - Added switch for power-on time format
+#   - Fixed some shellcheck errors
+#   - Added .tar.gz to backup file attached to email
+#   - (Still coming) Better SSD SMART support
 # v1.1:
 #   - Config backup now attached to report email
 #   - Added option to turn off config backup
@@ -66,14 +69,14 @@ subject="Status Report and Configuration Backup for ${host}"
 boundary="gc0p4Jq0M2Yt08jU534c0p"
 if ([ "$includeSSD" == "true" ]); then
     drives=$(for drive in $(sysctl -n kern.disks); do \
-        if ([ "$(smartctl -i /dev/${drive} | grep "SMART support is: Enabled")" ]); then
-            printf ${drive}" ";
+        if ([ "$(smartctl -i /dev/"${drive}" | grep "SMART support is: Enabled")" ]); then
+            printf "%s " "${drive}";
         fi
     done | awk '{for (i=NF; i!=0 ; i--) print $i }')
 else
     drives=$(for drive in $(sysctl -n kern.disks); do \
-        if ([ "$(smartctl -i /dev/${drive} | grep "SMART support is: Enabled")" ] && ! [ "$(smartctl -i /dev/${drive} | grep "Solid State Device")" ]); then
-            printf ${drive}" ";
+        if ([ "$(smartctl -i /dev/"${drive}" | grep "SMART support is: Enabled")" ] && ! [ "$(smartctl -i /dev/"${drive}" | grep "Solid State Device")" ]); then
+            printf "%s " "${drive}";
         fi
     done | awk '{for (i=NF; i!=0 ; i--) print $i }')
 fi
@@ -88,14 +91,12 @@ pools=$(zpool list -H -o name)
     echo "Subject: ${subject}"
     echo "MIME-Version: 1.0"
     echo "Content-Type: multipart/mixed; boundary=${boundary}"
-    echo -e "\r\n"
 ) > "$logfile"
 
 
 ###### Config backup (if enabled)
 if ([ "$configBackup" == "true" ]); then
     # Set up file names, etc for later
-    config_logfile="/tmp/config_backup_error.tmp"
     tarfile="/tmp/config_backup.tar.gz"
     filename="$(date "+FreeNAS_Config_%Y-%m-%d")"
     ### Test config integrity
@@ -104,7 +105,6 @@ if ([ "$configBackup" == "true" ]); then
         (
             echo "--${boundary}"
             echo "Content-Type: text/html"
-            echo -e "\r\n"
             echo "<b>Automatic backup of FreeNAS configuration has failed! The configuration file is corrupted!</b>"
             echo "<b>You should correct this problem as soon as possible!</b>"
             echo "<br>"
@@ -114,20 +114,20 @@ if ([ "$configBackup" == "true" ]); then
         cp /data/freenas-v1.db "/tmp/${filename}.db"
         md5 "/tmp/${filename}.db" > /tmp/config_backup.md5
         sha256 "/tmp/${filename}.db" > /tmp/config_backup.sha256
-        cd "/tmp/"; tar -czf "${tarfile}" "./${filename}.db" ./config_backup.md5 ./config_backup.sha256; cd - > /dev/null
+        (
+            cd "/tmp/" || exit;
+            tar -czf "${tarfile}" "./${filename}.db" ./config_backup.md5 ./config_backup.sha256;
+        )
         (
             # Write MIME section header for file attachment (encoded with base64)
             echo "--${boundary}"
             echo "Content-Type: application/tar+gzip"
             echo "Content-Transfer-Encoding: base64"
-            echo "Content-Disposition: attachment; filename=\"$filename\""
-            echo -e "\r\n"
+            echo "Content-Disposition: attachment; filename=${filename}.tar.gz"
             base64 "$tarfile"
-            echo -e "\r\n"
             # Write MIME section header for html content to come below
             echo "--${boundary}"
             echo "Content-Type: text/html"
-            echo -e "\r\n"
         ) >> "$logfile"
         # If logfile saving is enabled, copy .tar.gz file to specified location before it (and everything else) is removed below
         if ([ "$saveBackup" == "true" ]); then
@@ -143,7 +143,6 @@ else
     (
         echo "--${boundary}"
         echo "Content-Type: text/html"
-        echo -e "\r\n"
     ) >> "$logfile"
 fi
 
@@ -172,10 +171,10 @@ for pool in $pools; do
     # zpool health summary
     status="$(zpool list -H -o health "$pool")"
     # Total all read, write, and checksum errors per pool
-    errors="$(zpool status "$pool" | egrep "(ONLINE|DEGRADED|FAULTED|UNAVAIL|REMOVED)[ \t]+[0-9]+")"
+    errors="$(zpool status "$pool" | grep -E "(ONLINE|DEGRADED|FAULTED|UNAVAIL|REMOVED)[ \\t]+[0-9]+")"
     readErrors=0
     for err in $(echo "$errors" | awk '{print $3}'); do
-        if echo "$err" | egrep -q "[^0-9]+"; then
+        if echo "$err" | grep -E -q "[^0-9]+"; then
             readErrors=1000
             break
         fi
@@ -183,7 +182,7 @@ for pool in $pools; do
     done
     writeErrors=0
     for err in $(echo "$errors" | awk '{print $4}'); do
-        if echo "$err" | egrep -q "[^0-9]+"; then
+        if echo "$err" | grep -E -q "[^0-9]+"; then
             writeErrors=1000
             break
         fi
@@ -191,7 +190,7 @@ for pool in $pools; do
     done
     cksumErrors=0
     for err in $(echo "$errors" | awk '{print $5}'); do
-        if echo "$err" | egrep -q "[^0-9]+"; then
+        if echo "$err" | grep -E -q "[^0-9]+"; then
             cksumErrors=1000
             break
         fi
@@ -240,7 +239,7 @@ for pool in $pools; do
             <td style=\"text-align:center; background-color:%s; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;\">%s</td>
             <td style=\"text-align:center; background-color:%s; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;\">%s</td>
             <td style=\"text-align:center; background-color:%s; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;\">%s</td>
-        </tr>\n" "$bgColor" "$pool" "$statusColor" "$status" "$readErrorsColor" "$readErrors" "$writeErrorsColor" "$writeErrors" "$cksumErrorsColor" \
+        </tr>\\n" "$bgColor" "$pool" "$statusColor" "$status" "$readErrorsColor" "$readErrors" "$writeErrorsColor" "$writeErrors" "$cksumErrorsColor" \
         "$cksumErrors" "$usedColor" "$used" "$scrubRepBytesColor" "$scrubRepBytes" "$scrubErrorsColor" "$scrubErrors" "$scrubAgeColor" "$scrubAge"
     ) >> "$logfile"
 done
@@ -302,23 +301,11 @@ for drive in $drives; do
             mos=int((onHours % 8760) / 730);
             dys=int(((onHours % 8760) % 730) / 24);
             hrs=((onHours % 8760) % 730) % 24;
-            switch (powerTimeFormat) {
-                case "ymdh":
-                    onTime=yrs "y " mos "m " dys "d " hrs "h"
-                    break
-                case "ymd":
-                    onTime=yrs "y " mos "m " dys "d"
-                    break
-                case "ym":
-                    onTime=yrs "y " mos "m"
-                    break
-                case "y":
-                    onTime=yrs "y"
-                    break
-                default:
-                    onTime=yrs "y " mos "m " dys "d " hrs "h "
-                    break
-            }
+            if (powerTimeFormat == "ymdh") onTime=yrs "y " mos "m " dys "d " hrs "h";
+            else if (powerTimeFormat == "ymd") onTime=yrs "y " mos "m " dys "d";
+            else if (powerTimeFormat == "ym") onTime=yrs "y " mos "m";
+            else if (powerTimeFormat == "y") onTime=yrs "y";
+            else onTime=yrs "y " mos "m " dys "d " hrs "h ";
             if ((substr(device,3) + 0) % 2 == 1) bgColor = "#ffffff"; else bgColor = altColor;
             if (smartStatus != "PASSED") smartStatusColor = critColor; else smartStatusColor = okColor;
             if (temp >= tempCrit) tempColor = critColor; else if (temp >= tempWarn) tempColor = warnColor; else tempColor = bgColor;
@@ -353,8 +340,10 @@ for drive in $drives; do
     ) >> "$logfile"
 done
 # End SMART summary table and summary section
-echo "</table>" >> "$logfile"
-echo "<br><br>" >> "$logfile"
+(
+    echo "</table>"
+    echo "<br><br>"
+) >> "$logfile"
 
 
 ###### Detailed Report Section (monospace text)
@@ -381,8 +370,8 @@ for drive in $drives; do
         echo "<br>"
         echo "<b>########## SMART status report for ${drive} drive (${brand}: ${serial}) ##########</b>"
         smartctl -H -A -l error /dev/"$drive"
-        smartctl -l selftest /dev/"$drive" | grep "Extended \|Num" | cut -c6- | head -2
-        smartctl -l selftest /dev/"$drive" | grep "Short \|Num" | cut -c6- | head -2 | tail -n -1
+        smartctl -l selftest /dev/"$drive" | grep "Extended \\|Num" | cut -c6- | head -2
+        smartctl -l selftest /dev/"$drive" | grep "Short \\|Num" | cut -c6- | head -2 | tail -n -1
         echo "<br><br>"
     ) >> "$logfile"
 done
@@ -395,9 +384,10 @@ sed -i '' -e '/Vendor Specific SMART/d' "$logfile"
 sed -i '' -e '/SMART Error Log Version/d' "$logfile"
 
 ### End details section, close MIME section
-echo "</pre>" >> "$logfile"
-echo -e "\r\n" >> "$logfile"
-echo "--${boundary}--" >> "$logfile"
+(
+    echo "</pre>"
+    echo "--${boundary}--"
+)  >> "$logfile"
 
 ### Send report
 sendmail -t -oi < "$logfile"
