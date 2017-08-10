@@ -1,7 +1,7 @@
 #!/bin/bash
 
 ###### ZPool & SMART status report with FreeNAS config backup
-### Original script by joeschmuck, modified by Bidelu0hm, then by melp
+### Original script by joeschmuck, modified by Bidelu0hm, then by melp (me)
 
 ### At a minimum, enter email address in user-definable parameter section. Feel free to edit other user parameters as needed.
 ### If you find any errors, feel free to contact me on the FreeNAS forums (username melp) or email me at jason at jro dot io.
@@ -10,7 +10,7 @@
 ### Changelog:
 # v1.2:
 #   - Added switch for power-on time format
-#   - Fixed some shellcheck errors
+#   - Fixed some shellcheck errors & other misc stuff
 #   - Added .tar.gz to backup file attached to email
 #   - (Still coming) Better SSD SMART support
 # v1.1:
@@ -67,16 +67,16 @@ host=$(hostname -s)
 logfile="/tmp/smart_report.tmp"
 subject="Status Report and Configuration Backup for ${host}"
 boundary="gc0p4Jq0M2Yt08jU534c0p"
-if ([ "$includeSSD" == "true" ]); then
-    drives=$(for drive in $(sysctl -n kern.disks); do \
-        if ([ "$(smartctl -i /dev/"${drive}" | grep "SMART support is: Enabled")" ]); then
-            printf "%s " "${drive}";
+if [ "$includeSSD" == "true" ]; then
+    drives=$(for drive in $(sysctl -n kern.disks); do
+        if [ "$(smartctl -i /dev/"${drive}" | grep "SMART support is: Enabled")" ]; then
+            printf "%s " "${drive}"
         fi
     done | awk '{for (i=NF; i!=0 ; i--) print $i }')
 else
-    drives=$(for drive in $(sysctl -n kern.disks); do \
-        if ([ "$(smartctl -i /dev/"${drive}" | grep "SMART support is: Enabled")" ] && ! [ "$(smartctl -i /dev/"${drive}" | grep "Solid State Device")" ]); then
-            printf "%s " "${drive}";
+    drives=$(for drive in $(sysctl -n kern.disks); do
+        if [ "$(smartctl -i /dev/"${drive}" | grep "SMART support is: Enabled")" ] && ! [ "$(smartctl -i /dev/"${drive}" | grep "Solid State Device")" ]; then
+            printf "%s " "${drive}"
         fi
     done | awk '{for (i=NF; i!=0 ; i--) print $i }')
 fi
@@ -95,7 +95,7 @@ pools=$(zpool list -H -o name)
 
 
 ###### Config backup (if enabled)
-if ([ "$configBackup" == "true" ]); then
+if [ "$configBackup" == "true" ]; then
     # Set up file names, etc for later
     tarfile="/tmp/config_backup.tar.gz"
     filename="$(date "+FreeNAS_Config_%Y-%m-%d")"
@@ -130,7 +130,7 @@ if ([ "$configBackup" == "true" ]); then
             echo "Content-Type: text/html"
         ) >> "$logfile"
         # If logfile saving is enabled, copy .tar.gz file to specified location before it (and everything else) is removed below
-        if ([ "$saveBackup" == "true" ]); then
+        if [ "$saveBackup" == "true" ]; then
             cp "${tarfile}" "${backupLocation}/${filename}.tar.gz"
         fi
         rm "/tmp/${filename}.db"
@@ -224,8 +224,8 @@ for pool in $pools; do
     if [ "$writeErrors" != "0" ]; then writeErrorsColor="$warnColor"; else writeErrorsColor="$bgColor"; fi
     if [ "$cksumErrors" != "0" ]; then cksumErrorsColor="$warnColor"; else cksumErrorsColor="$bgColor"; fi
     if [ "$used" -gt "$usedWarn" ]; then usedColor="$warnColor"; else usedColor="$bgColor"; fi
-    if ( [ "$scrubRepBytes" != "N/A" ] && [ "$scrubRepBytes" != "0" ] ); then scrubRepBytesColor="$warnColor"; else scrubRepBytesColor="$bgColor"; fi
-    if ( [ "$scrubErrors" != "N/A" ] && [ "$scrubErrors" != "0" ] ); then scrubErrorsColor="$warnColor"; else scrubErrorsColor="$bgColor"; fi
+    if [ "$scrubRepBytes" != "N/A" ] && [ "$scrubRepBytes" != "0" ]; then scrubRepBytesColor="$warnColor"; else scrubRepBytesColor="$bgColor"; fi
+    if [ "$scrubErrors" != "N/A" ] && [ "$scrubErrors" != "0" ]; then scrubErrorsColor="$warnColor"; else scrubErrorsColor="$bgColor"; fi
     if [ "$(echo "$scrubAge" | awk '{print int($1)}')" -gt "$scrubAgeWarn" ]; then scrubAgeColor="$warnColor"; else scrubAgeColor="$bgColor"; fi
     (
         # Use the information gathered above to write the date to the current table row
