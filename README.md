@@ -11,7 +11,8 @@ Preview of the output here: http://i.imgur.com/t9Mtqyt.png
 
 *v1.2:*
 - Added switch for power-on time format
-- Fixed some shellcheck errors
+- Slimmed down table columns
+- Fixed some shellcheck errors & other misc stuff
 - Added .tar.gz to backup file attached to email
 - (Still coming) Better SSD SMART support
 
