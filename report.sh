@@ -6,8 +6,12 @@
 ### At a minimum, enter email address in user-definable parameter section. Feel free to edit other user parameters as needed.
 ### If you find any errors, feel free to contact me on the FreeNAS forums (username melp) or email me at jason at jro dot io.
 
-### Version: v1.2
+### Version: v1.3
 ### Changelog:
+# v1.3:
+#   - Fixed for FreeNAS 11.1
+#   - Fixed fields parsed out of zpool status
+#   - Buffered zpool status to reduce calls to script
 # v1.2:
 #   - Added switch for power-on time format
 #   - Slimmed down table columns
@@ -207,11 +211,12 @@ for pool in $pools; do
     scrubRepBytes="N/A"
     scrubErrors="N/A"
     scrubAge="N/A"
-    if [ "$(zpool status "$pool" | grep "scan" | awk '{print $2}')" = "scrub" ]; then
-        scrubRepBytes="$(zpool status "$pool" | grep "scan" | awk '{print $4}')"
-        scrubErrors="$(zpool status "$pool" | grep "scan" | awk '{print $8}')"
+    statusOutput="$(zpool status "$pool")"
+    if [ "$(echo "$statusOutput" | grep "scan" | awk '{print $2}')" = "scrub" ]; then
+        scrubRepBytes="$(echo "$statusOutput" | grep "scan" | awk '{print $4}')"
+        scrubErrors="$(echo "$statusOutput" | grep "scan" | awk '{print $10}')"
         # Convert time/datestamp format presented by zpool status, compare to current date, calculate scrub age
-        scrubDate="$(zpool status "$pool" | grep "scan" | awk '{print $15"-"$12"-"$13"_"$14}')"
+        scrubDate="$(echo "$statusOutput" | grep "scan" | awk '{print $17"-"$14"-"$15"_"$16}')"
         scrubTS="$(date -j -f "%Y-%b-%e_%H:%M:%S" "$scrubDate" "+%s")"
         currentTS="$(date "+%s")"
         scrubAge=$((((currentTS - scrubTS) + 43200) / 86400))
