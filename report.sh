@@ -9,7 +9,8 @@
 ### Version: v1.3
 ### Changelog:
 # v1.3:
-#   - Fixed for FreeNAS 11.1
+#   - Added scrub duration column
+#   - Fixed for FreeNAS 11.1 (thanks reven!)
 #   - Fixed fields parsed out of zpool status
 #   - Buffered zpool status to reduce calls to script
 # v1.2:
@@ -35,7 +36,6 @@
 
 ### TODO:
 # - Fix SSD SMART reporting
-# - Run through shellcheck and fix stuff
 # - Add support for conveyance test
 
 
@@ -169,6 +169,7 @@ fi
     echo "  <th style=\"text-align:center; width:100px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;\">Scrub<br>Repaired<br>Bytes</th>"
     echo "  <th style=\"text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;\">Scrub<br>Errors</th>"
     echo "  <th style=\"text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;\">Last<br>Scrub<br>Age</th>"
+    echo "  <th style=\"text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;\">Last<br>Scrub<br>Time</th>"
     echo "</tr>"
 ) >> "$logfile"
 poolNum=0
@@ -211,6 +212,7 @@ for pool in $pools; do
     scrubRepBytes="N/A"
     scrubErrors="N/A"
     scrubAge="N/A"
+    scrubTime="N/A"
     statusOutput="$(zpool status "$pool")"
     if [ "$(echo "$statusOutput" | grep "scan" | awk '{print $2}')" = "scrub" ]; then
         scrubRepBytes="$(echo "$statusOutput" | grep "scan" | awk '{print $4}')"
@@ -220,6 +222,11 @@ for pool in $pools; do
         scrubTS="$(date -j -f "%Y-%b-%e_%H:%M:%S" "$scrubDate" "+%s")"
         currentTS="$(date "+%s")"
         scrubAge=$((((currentTS - scrubTS) + 43200) / 86400))
+        scrubTime="$(echo "$statusOutput" | grep "scan" | awk '{print $8}')"
+    fi
+    # Check if scrub is in progress
+    if [ "$(echo "$statusOutput"| grep "scan" | awk '{print $4}')" = "progress" ]; then
+        scrubAge="In Progress"
     fi
     # Set row's background color; alternates between white and $altColor (light gray)
     if [ $((poolNum % 2)) == 1 ]; then bgColor="#ffffff"; else bgColor="$altColor"; fi
@@ -245,8 +252,9 @@ for pool in $pools; do
             <td style=\"text-align:center; background-color:%s; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;\">%s</td>
             <td style=\"text-align:center; background-color:%s; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;\">%s</td>
             <td style=\"text-align:center; background-color:%s; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;\">%s</td>
+            <td style=\"text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;\">%s</td>
         </tr>\\n" "$bgColor" "$pool" "$statusColor" "$status" "$readErrorsColor" "$readErrors" "$writeErrorsColor" "$writeErrors" "$cksumErrorsColor" \
-        "$cksumErrors" "$usedColor" "$used" "$scrubRepBytesColor" "$scrubRepBytes" "$scrubErrorsColor" "$scrubErrors" "$scrubAgeColor" "$scrubAge"
+        "$cksumErrors" "$usedColor" "$used" "$scrubRepBytesColor" "$scrubRepBytes" "$scrubErrorsColor" "$scrubErrors" "$scrubAgeColor" "$scrubAge" "$scrubTime"
     ) >> "$logfile"
 done
 # End of zpool status table
