@@ -10,7 +10,8 @@ Preview of the output here: http://i.imgur.com/t9Mtqyt.png
 **Changelog:**
 
 *v1.3:*
-- Fixed for FreeNAS 11.1
+- Added scrub duration column
+- Fixed for FreeNAS 11.1 (thanks reven!)
 - Fixed fields parsed out of zpool status
 - Buffered zpool status to reduce calls to script
 
