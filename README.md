@@ -40,5 +40,4 @@ Preview of the output here: http://i.imgur.com/t9Mtqyt.png
 
 **TODO:**
 - Fix SSD SMART reporting
-- Run through shellcheck and fix stuff
 - Add support for conveyance test
