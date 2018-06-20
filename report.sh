@@ -13,9 +13,6 @@
 #   - in statusOutput changed grep to scrub: instead of scrub
 #   - added elif for resilvered/resilver in progress and scrub in progress with (hopefully) som useful info fields
 #   - changed the email subject to include hostname and date & time
-#   - 
-#   - 
-#   - 
 # v1.3:
 #   - Added scrub duration column
 #   - Fixed for FreeNAS 11.1 (thanks reven!)
@@ -262,12 +259,8 @@ for pool in $pools; do
         scrubRepBytes="Scrub In Progress"
         scrubErrors="$(echo "$statusOutput" | grep "repaired," | awk '{print $1" repaired"}')"
         scrubAge="$(echo "$statusOutput" | grep "repaired," | awk '{print $3" done"}')"
-     #   if [ "$(echo "$statusOutput" | grep "scanned out of" | awk '{print $8}')" = "0" ]; then
-            scrubTime="$(echo "$statusOutput" | grep "scanned out of" | awk '{print $8"<br>to go"}')"
-    #    else
-     #       scrubTime="$(echo "$statusOutput" | grep "scanned out of" | awk '{print $5" "$6" "$7"<br>to go"}')"
-      #  fi
-fi
+        scrubTime="$(echo "$statusOutput" | grep "scanned out of" | awk '{print $8"<br>to go"}')"
+    fi
 
    # Set row's background color; alternates between white and $altColor (light gray)
     if [ $((poolNum % 2)) == 1 ]; then bgColor="#ffffff"; else bgColor="$altColor"; fi

@@ -11,12 +11,11 @@ or when a resilver is in progress: https://i.imgur.com/CUNUZ7r.png
 
 **Changelog:**
 
-v1.3b
+and my mods are:
 - fixed the broken border on zpool status summary header
 - in statusOutput changed grep to scrub: instead of scrub
 - added elif for resilvered/resilver in progress and scrub in progress with (hopefully) som useful info fields
 - changed the email subject to include hostname and date & time
-
 
 *v1.3:*
 - Added scrub duration column
