@@ -2,10 +2,14 @@
 Original script by joeschmuck, modified by Bidelu0hm, then by melp
 
 Preview of the output here: http://i.imgur.com/t9Mtqyt.png
-  When a resilver is in progress: https://i.imgur.com/CUNUZ7r.png
-  After the resilver is done: https://i.imgur.com/I43MLLf.png
-  When a scrub is in progess: https://i.imgur.com/YGmvZT4.png
+
+When a resilver is in progress: https://i.imgur.com/CUNUZ7r.png
+
+After the resilver is done: https://i.imgur.com/I43MLLf.png
+
+When a scrub is in progess: https://i.imgur.com/YGmvZT4.png
   
+
 
 
 **At a minimum, you will need to enter your email address in user-definable parameter section.** Feel free to edit other user parameters as needed.
