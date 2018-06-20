@@ -8,6 +8,14 @@
 
 ### Version: v1.3
 ### Changelog:
+# v1.?
+#   - fixed the broken border on zpool status summary header
+#   - in statusOutput changed grep to scrub: instead of scrub
+#   - added elif for resilvered/resilver in progress and scrub in progress with (hopefully) som useful info fields
+#   - changed the email subject to include hostname and date & time
+#   - 
+#   - 
+#   - 
 # v1.3:
 #   - Added scrub duration column
 #   - Fixed for FreeNAS 11.1 (thanks reven!)
@@ -70,7 +78,7 @@ backupLocation="/path/to/config/backup"   # Directory in which to save FreeNAS c
 ###### Auto-generated Parameters
 host=$(hostname -s)
 logfile="/tmp/smart_report.tmp"
-subject="Status Report and Configuration Backup for ${host}"
+subject="[${host}] Status Report and Configuration Backup $(date "+%Y-%m-%d %H:%M")"
 boundary="gc0p4Jq0M2Yt08jU534c0p"
 if [ "$includeSSD" == "true" ]; then
     drives=$(for drive in $(sysctl -n kern.disks); do
@@ -158,7 +166,7 @@ fi
     # Write HTML table headers to log file; HTML in an email requires 100% in-line styling (no CSS or <style> section), hence the massive tags
     echo "<br><br>"
     echo "<table style=\"border: 1px solid black; border-collapse: collapse;\">"
-    echo "<tr><th colspan=\"9\" style=\"text-align:center; font-size:20px; height:40px; font-family:courier;\">ZPool Status Report Summary</th></tr>"
+    echo "<tr><th colspan=\"10\" style=\"text-align:center; font-size:20px; height:40px; font-family:courier;\">ZPool Status Report Summary</th></tr>"
     echo "<tr>"
     echo "  <th style=\"text-align:center; width:130px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;\">Pool<br>Name</th>"
     echo "  <th style=\"text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;\">Status</th>"
@@ -213,26 +221,60 @@ for pool in $pools; do
     scrubErrors="N/A"
     scrubAge="N/A"
     scrubTime="N/A"
+    resilver=""
+
     statusOutput="$(zpool status "$pool")"
-    if [ "$(echo "$statusOutput" | grep "scan" | awk '{print $2}')" = "scrub" ]; then
-        scrubRepBytes="$(echo "$statusOutput" | grep "scan" | awk '{print $4}')"
-        scrubErrors="$(echo "$statusOutput" | grep "scan" | awk '{print $10}')"
+    # normal status i.e. scrub
+    if [ "$(echo "$statusOutput" | grep "scan:" | awk '{print $2}')" = "scrub" ]; then
+        scrubRepBytes="$(echo "$statusOutput" | grep "scan:" | awk '{print $4}')"
+        scrubErrors="$(echo "$statusOutput" | grep "scan:" | awk '{print $10}')"
         # Convert time/datestamp format presented by zpool status, compare to current date, calculate scrub age
-        scrubDate="$(echo "$statusOutput" | grep "scan" | awk '{print $17"-"$14"-"$15"_"$16}')"
+        scrubDate="$(echo "$statusOutput" | grep "scan:" | awk '{print $17"-"$14"-"$15"_"$16}')"
         scrubTS="$(date -j -f "%Y-%b-%e_%H:%M:%S" "$scrubDate" "+%s")"
         currentTS="$(date "+%s")"
         scrubAge=$((((currentTS - scrubTS) + 43200) / 86400))
-        scrubTime="$(echo "$statusOutput" | grep "scan" | awk '{print $8}')"
-    fi
+        scrubTime="$(echo "$statusOutput" | grep "scan:" | awk '{print $8}')"
+
+    # if status is resilvered
+    elif [ "$(echo "$statusOutput" | grep "scan:" | awk '{print $2}')" = "resilvered" ]; then
+            resilver="<BR>Resilvered"
+            scrubRepBytes="$(echo "$statusOutput" | grep "scan:" | awk '{print $3}')"
+            scrubErrors="$(echo "$statusOutput" | grep "scan:" | awk '{print $9}')"
+            # Convert time/datestamp format presented by zpool status, compare to current date, calculate scrub age
+            scrubDate="$(echo "$statusOutput" | grep "scan:" | awk '{print $16"-"$13"-"$14"_"$15}')"
+            scrubTS="$(date -j -f "%Y-%b-%e_%H:%M:%S" "$scrubDate" "+%s")"
+            currentTS="$(date "+%s")"
+            scrubAge=$((((currentTS - scrubTS) + 43200) / 86400))
+            scrubTime="$(echo "$statusOutput" | grep "scan:" | awk '{print $7}')"
+
+    # Check if resilver is in progress
+    elif [ "$(echo "$statusOutput"| grep "scan:" | awk '{print $2}')" = "resilver" ]; then
+        scrubRepBytes="Resilver In Progress"
+        scrubAge="$(echo "$statusOutput" | grep "resilvered," | awk '{print $3" done"}')"
+        if [ "$(echo "$statusOutput" | grep "resilvered," | awk '{print $5}')" = "0" ]; then
+            scrubTime="$(echo "$statusOutput" | grep "resilvered," | awk '{print $7"<br>to go"}')"
+        else
+            scrubTime="$(echo "$statusOutput" | grep "resilvered," | awk '{print $5" "$6" "$7"<br>to go"}')"
+        fi
+
     # Check if scrub is in progress
-    if [ "$(echo "$statusOutput"| grep "scan" | awk '{print $4}')" = "progress" ]; then
-        scrubAge="In Progress"
-    fi
-    # Set row's background color; alternates between white and $altColor (light gray)
+    elif [ "$(echo "$statusOutput"| grep "scan:" | awk '{print $4}')" = "progress" ]; then
+        scrubRepBytes="Scrub In Progress"
+        scrubErrors="$(echo "$statusOutput" | grep "repaired," | awk '{print $1" repaired"}')"
+        scrubAge="$(echo "$statusOutput" | grep "repaired," | awk '{print $3" done"}')"
+     #   if [ "$(echo "$statusOutput" | grep "scanned out of" | awk '{print $8}')" = "0" ]; then
+            scrubTime="$(echo "$statusOutput" | grep "scanned out of" | awk '{print $8"<br>to go"}')"
+    #    else
+     #       scrubTime="$(echo "$statusOutput" | grep "scanned out of" | awk '{print $5" "$6" "$7"<br>to go"}')"
+      #  fi
+fi
+
+   # Set row's background color; alternates between white and $altColor (light gray)
     if [ $((poolNum % 2)) == 1 ]; then bgColor="#ffffff"; else bgColor="$altColor"; fi
     poolNum=$((poolNum + 1))
     # Set up conditions for warning or critical colors to be used in place of standard background colors
     if [ "$status" != "ONLINE" ]; then statusColor="$warnColor"; else statusColor="$bgColor"; fi
+    status+="$resilver"
     if [ "$readErrors" != "0" ]; then readErrorsColor="$warnColor"; else readErrorsColor="$bgColor"; fi
     if [ "$writeErrors" != "0" ]; then writeErrorsColor="$warnColor"; else writeErrorsColor="$bgColor"; fi
     if [ "$cksumErrors" != "0" ]; then cksumErrorsColor="$warnColor"; else cksumErrorsColor="$bgColor"; fi

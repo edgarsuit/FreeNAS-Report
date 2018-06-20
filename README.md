@@ -2,12 +2,20 @@
 Original script by joeschmuck, modified by Bidelu0hm, then by melp
 
 Preview of the output here: http://i.imgur.com/t9Mtqyt.png
+or when a resilver is in progress: https://i.imgur.com/CUNUZ7r.png
+
 
 **At a minimum, you will need to enter your email address in user-definable parameter section.** Feel free to edit other user parameters as needed.
 
 **Version: v1.3**
 
 **Changelog:**
+
+- fixed the broken border on zpool status summary header
+- in statusOutput changed grep to scrub: instead of scrub
+- added elif for resilvered/resilver in progress and scrub in progress with (hopefully) som useful info fields
+- changed the email subject to include hostname and date & time
+
 
 *v1.3:*
 - Added scrub duration column
