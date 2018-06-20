@@ -222,7 +222,7 @@ for pool in $pools; do
 
     statusOutput="$(zpool status "$pool")"
     # normal status i.e. scrub
-    if [ "$(echo "$statusOutput" | grep "scan:" | awk '{print $2}')" = "scrub" ]; then
+    if [ "$(echo "$statusOutput" | grep "scan:" | awk '{print $2}')" = "scrub repaired" ]; then
         scrubRepBytes="$(echo "$statusOutput" | grep "scan:" | awk '{print $4}')"
         scrubErrors="$(echo "$statusOutput" | grep "scan:" | awk '{print $10}')"
         # Convert time/datestamp format presented by zpool status, compare to current date, calculate scrub age
@@ -259,7 +259,11 @@ for pool in $pools; do
         scrubRepBytes="Scrub In Progress"
         scrubErrors="$(echo "$statusOutput" | grep "repaired," | awk '{print $1" repaired"}')"
         scrubAge="$(echo "$statusOutput" | grep "repaired," | awk '{print $3" done"}')"
-        scrubTime="$(echo "$statusOutput" | grep "scanned out of" | awk '{print $8"<br>to go"}')"
+        if [ "$(echo "$statusOutput" | grep "repaired," | awk '{print $5}')" = "0" ]; then
+            scrubTime="$(echo "$statusOutput" | grep "repaired," | awk '{print $7"<br>to go"}')"
+        else
+            scrubTime="$(echo "$statusOutput" | grep "repaired," | awk '{print $5" "$6" "$7"<br>to go"}')"
+        fi
     fi
 
    # Set row's background color; alternates between white and $altColor (light gray)
