@@ -23,6 +23,7 @@ and my mods are:
 - in statusOutput changed grep to scrub: instead of scrub
 - added elif for resilvered/resilver in progress and scrub in progress with (hopefully) som useful info fields
 - changed the email subject to include hostname and date & time
+- aaand fixed the parser
 
 *v1.3:*
 - Added scrub duration column
