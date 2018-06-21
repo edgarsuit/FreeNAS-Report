@@ -222,7 +222,7 @@ for pool in $pools; do
 
     statusOutput="$(zpool status "$pool")"
     # normal status i.e. scrub
-    if [ "$(echo "$statusOutput" | grep "scan:" | awk '{print $2}')" = "scrub repaired" ]; then
+    if [ "$(echo "$statusOutput" | grep "scan:" | awk '{print $2" "$3}')" = "scrub repaired" ]; then
         scrubRepBytes="$(echo "$statusOutput" | grep "scan:" | awk '{print $4}')"
         scrubErrors="$(echo "$statusOutput" | grep "scan:" | awk '{print $10}')"
         # Convert time/datestamp format presented by zpool status, compare to current date, calculate scrub age
