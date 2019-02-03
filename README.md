@@ -1,5 +1,6 @@
 # ZPool & SMART status report with FreeNAS config backup
-Original script by joeschmuck, modified by Bidelu0hm, then by melp, and then by me too
+Original Script By: joeschmuck
+Modified By: Bidelu0hm, melp, onlinepcwizard, Ninpucho
 
 Preview of the output here: http://i.imgur.com/t9Mtqyt.png
 
@@ -10,15 +11,24 @@ After the resilver is done: https://i.imgur.com/I43MLLf.png
 When a scrub is in progess: https://i.imgur.com/YGmvZT4.png
   
 
-
-
 **At a minimum, you will need to enter your email address in user-definable parameter section.** Feel free to edit other user parameters as needed.
+**NOTE: Backup has been disabled by default so if required please set to true.**
 
-**Version: v1.3**
+**Version: v1.5**
 
 **Changelog:**
 
-and my mods are:
+*v1.5* (ninpucho)
+ - Added Frag%, Size, Allocated, Free for ZPool status report summary.
+ - Added Disk Size, RPM, Model to the Smart Report
+ - Added if statment so that if "Model Family" is not present script will use "Device Model" 
+      for brand in the SMART Satus report details.
+ - Added Glabel Status Report
+ - Removed Power-On time labels and added ":" as a separator.
+ - Added Power-On format to the Power-On time Header.
+ - Changed Backup deafult to false.
+
+*v1.4:* (onlinepcwizard/FreeNAS-Report)
 - fixed the broken border on zpool status summary header
 - in statusOutput changed grep to scrub: instead of scrub
 - added elif for resilvered/resilver in progress and scrub in progress with (hopefully) som useful info fields
