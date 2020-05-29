@@ -15,6 +15,10 @@
 ### https://github.com/isentropik/FreeNAS-Report
 
 ### Changelog:
+# v1.6.5
+#   - HTML boundary fix, proper message ids, support for dma mailer
+#   - Better support for NVMe and SSD
+#   - Support for new smartmon-tools
 # v1.6
 #   - Actually fixed the broken borders in the tables.
 #   - Split the SMART table into two tables, one for SSDs and one for HDDs.
@@ -29,7 +33,7 @@
 #   - Added Glabel Status Report
 #   - Removed Power-On time labels and added ":" as a separator.
 #   - Added Power-On format to the Power-On time Header.
-#   - Changed Backup deafult to false.
+#   - Changed Backup default to false.
 # v1.4
 #   - in statusOutput changed grep to scrub: instead of scrub
 #   - added elif for resilvered/resilver in progress and scrub in progress with (hopefully) som useful info fields
@@ -92,7 +96,7 @@ tempWarn=40             # Drive temp (in C) at which WARNING color will be used
 tempCrit=45             # Drive temp (in C) at which CRITICAL color will be used
 sectorsCrit=10          # Number of sectors per drive with errors before CRITICAL color will be used
 testAgeWarn=5           # Maximum age (in days) of last SMART test before CRITICAL color will be used
-powerTimeFormat="ymd"   # Format for power-on hours string, valid options are "ymdh", "ymd", "ym", or "y" (year month day hour)
+powerTimeFormat="ymdh"  # Format for power-on hours string, valid options are "ymdh", "ymd", "ym", or "y" (year month day hour)
 
 ### FreeNAS config backup settings
 configBackup="false"     # Change to "false" to skip config backup (which renders next two options meaningless); "true" to keep config backups enabled
@@ -176,7 +180,8 @@ fi
 host=$(hostname -s)
 logfile="${logfileLocation}/$(date +%Y%m%d%H%M%S)_${logfileName}.tmp"
 subject="Status Report and Configuration Backup for ${host} - $(date "+%Y-%m-%d %H:%M")"
-boundary="gc0p4Jq0M2Yt08jU534c0p"
+boundary="$(dbus-uuidgen)"
+messageid="$(dbus-uuidgen)"
 
 # Reorders the drives in ascending order
 drives=$(for drive in $(sysctl -n kern.disks | sed -e 's:nvd:nvme:g'); do
@@ -189,7 +194,7 @@ done | awk '{for (i=NF; i!=0 ; i--) print $i }')
 
 # Toggles the 'ssdExist' flag to true if SSDs are detected in order to add the summary table
 if [ "${includeSSD}" == "true" ]; then
-    for drive in $drives; do
+    for drive in ${drives}; do
         if smartctl -i "/dev/${drive}" | grep -q "Solid State Device"; then
             ssdExist="true"
             break
@@ -197,6 +202,9 @@ if [ "${includeSSD}" == "true" ]; then
             ssdExist="false"
         fi
     done
+    if echo "${drives}" | grep -q "nvme"; then
+    	NVMeExist="true"
+    fi
 fi
 
 
@@ -204,12 +212,14 @@ fi
 ###### Email pre-formatting
 ### Set email headers
 (
-    echo "From: ${email}"
+    echo "From: $host <${email}>"
     echo "To: ${email}"
     echo "Subject: ${subject}"
     echo "MIME-Version: 1.0"
-    echo "Content-Type: multipart/mixed; boundary=${boundary}"
-) > "$logfile"
+    echo "Content-Type: multipart/mixed; boundary=\"${boundary}\""
+    echo "Date: $(date -R)"
+    echo "Message-Id: <${messageid}@${host}>"
+) > "${logfile}"
 
 
 
@@ -228,11 +238,12 @@ if [ "$configBackup" == "true" ]; then
         # Config integrity check failed, set MIME content type to html and print warning
         (
             echo "--${boundary}"
-            echo "Content-Type: text/html"
+            echo "Content-Transfer-Encoding: 8bit"
+            echo -e "Content-Type: text/html; charset=utf-8\n"
             echo "<b>Automatic backup of FreeNAS configuration has failed! The configuration file is corrupted!</b>"
             echo "<b>You should correct this problem as soon as possible!</b>"
             echo "<br>"
-        ) >> "$logfile"
+        ) >> "${logfile}"
     else
         # Config integrity check passed; copy config db, generate checksums, make .tar.gz archive
         cp /data/freenas-v1.db "/tmp/${filename}.db"
@@ -246,19 +257,20 @@ if [ "$configBackup" == "true" ]; then
         if [ "$emailBackup" == "true" ]; then
             # Write MIME section header for file attachment (encoded with base64)
             echo "--${boundary}"
-            echo "Content-Type: application/tar+gzip"
+            echo -e "Content-Type: application/tar+gzip\n"
             echo "Content-Transfer-Encoding: base64"
             echo "Content-Disposition: attachment; filename=${filename}.tar.gz"
-            base64 "$tarfile"
+            base64 "${tarfile}"
     fi
 
-        # Write MIME section header for html content to come below
-        echo "--${boundary}"
-        echo "Content-Type: text/html"
-        ) >> "$logfile"
+            # Write MIME section header for html content to come below
+            echo "--${boundary}"
+            echo "Content-Transfer-Encoding: 8bit"
+            echo -e "Content-Type: text/html; charset=utf-8\n"
+        ) >> "${logfile}"
 
         # If logfile saving is enabled, copy .tar.gz file to specified location before it (and everything else) is removed below
-        if [ "$saveBackup" == "true" ]; then
+        if [ "${saveBackup}" == "true" ]; then
             cp "${tarfile}" "${backupLocation}/${filename}.tar.gz"
         fi
         rm "/tmp/${filename}.db"
@@ -270,8 +282,9 @@ else
     # Config backup enabled; set up for html-type content
     (
         echo "--${boundary}"
-        echo "Content-Type: text/html"
-    ) >> "$logfile"
+        echo "Content-Transfer-Encoding: 8bit"
+        echo -e "Content-Type: text/html; charset=utf-8\n"
+    ) >> "${logfile}"
 fi
 
 
@@ -402,7 +415,7 @@ for pool in $pools; do
         fi
     fi
 
-   # Set row's background color; alternates between white and $altColor (light gray)
+    # Set row's background color; alternates between white and $altColor (light gray)
     if [ $((poolNum % 2)) == 1 ]; then bgColor="#ffffff"; else bgColor="$altColor"; fi
     poolNum=$((poolNum + 1))
 
@@ -413,7 +426,8 @@ for pool in $pools; do
     if [ "$writeErrors" != "0" ]; then writeErrorsColor="$warnColor"; else writeErrorsColor="$bgColor"; fi
     if [ "$cksumErrors" != "0" ]; then cksumErrorsColor="$warnColor"; else cksumErrorsColor="$bgColor"; fi
     if [ "$used" -gt "$usedWarn" ]; then usedColor="$warnColor"; else usedColor="$bgColor"; fi
-    if [ "$scrubRepBytes" != "N/A" ] && [ "$scrubRepBytes" != "0" ]; then scrubRepBytesColor="$warnColor"; else scrubRepBytesColor="$bgColor"; fi
+    if [ "$scrubRepBytes" != "N/A" ] && [ "$scrubRepBytes" != "0" ] && [ "$scrubRepBytes" != "0B" ]; then
+        scrubRepBytesColor="$warnColor"; else scrubRepBytesColor="$bgColor"; fi
     if [ "$scrubErrors" != "N/A" ] && [ "$scrubErrors" != "0" ]; then scrubErrorsColor="$warnColor"; else scrubErrorsColor="$bgColor"; fi
     if [ "$(echo "$scrubAge" | awk '{print int($1)}')" -gt "$scrubAgeWarn" ]; then scrubAgeColor="$warnColor"; else scrubAgeColor="$bgColor"; fi
     (
@@ -441,6 +455,149 @@ done
 # End of zpool status table
 echo "</table>" >> "$logfile"
 
+
+### SMART status summary tables
+
+
+###### NVMe SMART status summary table
+if [ "${NVMeExist}" = "true" ]; then
+    (
+        # Write HTML table headers to log file
+        echo "<br><br>"
+        echo "<table style=\"border: 1px solid black; border-collapse: collapse;\">"
+        echo "<tr><th colspan=\"18\" style=\"text-align:center; font-size:20px; height:40px; font-family:courier;\">NVMe SMART Status Report Summary</th></tr>"
+        echo "<tr>"
+
+        echo "  <th style=\"text-align:center; width:100px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;\">Device</th>" # Device
+
+        echo "  <th style=\"text-align:center; width:130px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;\">Model</th>" # Model
+
+        echo "  <th style=\"text-align:center; width:130px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;\">Serial<br>Number</th>" # Serial Number
+
+        echo "  <th style=\"text-align:center; width:100px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;\">Capacity</th>" # Capacity
+
+        echo "  <th style=\"text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;\">SMART<br>Status</th>" # SMART Status
+
+        echo "  <th style=\"text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;\">Temp</th>" # Temp
+
+        echo "  <th style=\"text-align:center; width:120px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;\">Power-On<br>Time<br>($powerTimeFormat)</th>" # Power-On Time
+
+        echo "  <th style=\"text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;\">Power<br>Cycle<br>Count</th>" # Power Cycle Count
+
+        echo "  <th style=\"text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;\">Integrity<br>Errors</th>" # Integrity Errors
+
+        echo "  <th style=\"text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;\">Error<br>Log<br>Entries</th>" # Error Log Entries
+
+        echo "  <th style=\"text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;\">Critical<br>Warning</th>" # Critical Warning
+
+        echo "  <th style=\"text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;\">Wear<br>Leveling<br>Count</th>" # Wear Leveling Count
+
+        echo "  <th style=\"text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;\">Total<br>Bytes<br>Written</th>" # Total Bytes Written
+
+        echo "  <th style=\"text-align:center; width:100px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;\">Bytes Written<br>(per Day)</th>" # Bytes Written (per Day)
+
+        echo "  <th style=\"text-align:center; width:100px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;\">Last Test<br>Age (days)</th>" # Last Test Age (days)
+
+        echo "  <th style=\"text-align:center; width:100px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;\">Last Test<br>Type</th></tr>" # Last Test Type
+
+        echo "</tr>"
+    ) >> "$logfile"
+
+
+	for drive in ${drives}; do
+        if echo "${drive}" | grep -q "nvme"; then
+			(
+				# For each drive detected, run "smartctl -A -i" and parse its output. This whole section is a single, long statement, so I'll make all comments here.
+				# Start by passing awk variables (all the -v's) used in other parts of the script. Other variables are calculated in-line with other smartctl calls.
+				# Next, pull values out of the original "smartctl -A -i" statement by searching for the text between the //'s.
+				# After parsing the output, compute other values (last test's age, on time in YY-MM-DD-HH).
+				# After these computations, determine the row's background color (alternating as above, subbing in other colors from the palate as needed).
+				# Finally, print the HTML code for the current row of the table with all the gathered data.
+				nvmeSmarOut="$(smartctl -Aij "/dev/${drive}")"
+				model="$(echo "${nvmeSmarOut}" | jq -Mre '.model_name | values')"
+				serial="$(echo "${nvmeSmarOut}" | jq -Mre '.serial_number | values')"
+				capacity="[$(echo "${nvmeSmarOut}" | jq -Mre '(.user_capacity.bytes/1000215216) | values')GB]"
+				temp="$(echo "${nvmeSmarOut}" | jq -Mre '.temperature.current | values')"
+				onHours="$(echo "${nvmeSmarOut}" | jq -Mre '.power_on_time.hours | values')"
+				startStop="$(echo "${nvmeSmarOut}" | jq -Mre '.power_cycle_count | values')"
+				mediaErrors="$(echo "${nvmeSmarOut}" | jq -Mre '.nvme_smart_health_information_log.media_errors | values')"
+				errorsLogs="$(echo "${nvmeSmarOut}" | jq -Mre '.nvme_smart_health_information_log.num_err_log_entries | values')"
+				critWarning="$(echo "${nvmeSmarOut}" | jq -Mre '.nvme_smart_health_information_log.critical_warning | values')"
+				wearLeveling="$(echo "${nvmeSmarOut}" | jq -Mre '.nvme_smart_health_information_log.available_spare | values')"
+				sectorSize="$(echo "${nvmeSmarOut}" | jq -Mre '.logical_block_size | values')"
+				totalLBA="$(echo "${nvmeSmarOut}" | jq -Mre '.user_capacity.blocks | values')"
+
+				smartStatus="$(smartctl -H "/dev/${drive}" | grep "SMART overall-health" | awk '{print $6}')"
+
+
+				smartctl -Ai "/dev/${drive}" | awk -v device="${drive}" -v tempWarn="${tempWarn}" -v tempCrit="${tempCrit}" -v okColor="${okColor}" \
+				-v warnColor="${warnColor}" -v critColor="${critColor}" -v altColor="${altColor}" \
+				-v powerTimeFormat="${powerTimeFormat}" \
+                -v totalBWWarn="${totalBWWarn}" -v totalBWCrit="${totalBWCrit}" -v lifeRemainWarn="${lifeRemainWarn}" -v lifeRemainCrit="${lifeRemainCrit}" \
+				-v model="${model}" -v serial="${serial}" -v capacity="${capacity}" -v temp="${temp}" -v onHours="${onHours}" \
+				-v startStop="${startStop}" -v mediaErrors="${mediaErrors}" -v errorsLogs="${errorsLogs}" \
+				-v critWarning="${critWarning}" -v wearLeveling="${wearLeveling}" -v sectorSize="${sectorSize}" \
+				-v totalLBA="${totalLBA}" \
+				-v smartStatus="${smartStatus}" -v lastTestHours="$((onHours - 2))" ' \
+				END {
+                    testAge=int((onHours - lastTestHours) / 24);
+                    yrs=int(onHours / 8760);
+                    mos=int((onHours % 8760) / 730);
+                    dys=int(((onHours % 8760) % 730) / 24);
+                    hrs=((onHours % 8760) % 730) % 24;
+                    if (powerTimeFormat == "ymdh") onTime=yrs "y " mos "m " dys "d " hrs "h ";
+                    else if (powerTimeFormat == "ymd") onTime=yrs "y " mos "m " dys "d ";
+                    else if (powerTimeFormat == "ym") onTime=yrs "y " mos "m ";
+                    else if (powerTimeFormat == "y") onTime=yrs "y ";
+                    else onTime=yrs "y " mos "m " dys "d " hrs "h ";
+                    if ((substr(device, length(device), 1) + 0) % 2 == 1) bgColor = "#ffffff"; else bgColor = altColor;
+                    if (smartStatus != "PASSED") smartStatusColor = critColor; else smartStatusColor = okColor;
+                    if (temp >= tempCrit) tempColor = critColor; else if (temp >= tempWarn) tempColor = warnColor; else tempColor = bgColor;
+                    if (temp == 0) temp = "N/A"; else temp = temp "*C";
+                    if ((reAlloc + 0) > sectorsCrit) reAllocColor = critColor; else if (reAlloc != 0) reAllocColor = warnColor; else reAllocColor = bgColor;
+                    if ((errorsLogs + 0) > sectorsCrit) errorsLogsColor = critColor; else if (errorsLogs != 0) errorsLogsColor = warnColor; else errorsLogsColor = bgColor;
+                    if ((eraseFail + 0) > sectorsCrit) eraseFailColor = critColor; else if (eraseFail != 0) eraseFailColor = warnColor; else eraseFailColor = bgColor;
+                    if ((critWarning + 0) > sectorsCrit) critWarningColor = critColor; else if (critWarning != 0) critWarningColor = warnColor; else critWarningColor = bgColor;
+                    if (mediaErrors != "0") mediaErrorsColor = warnColor; else mediaErrorsColor = bgColor;
+                    if (wearLeveling <= lifeRemainCrit) wearLevelingColor = critColor; else if (wearLeveling <= lifeRemainWarn) wearLevelingColor = warnColor; else wearLevelingColor = bgColor;
+                    totalBW=(((totalLBA * sectorSize) / 1048576) / 1048576);
+                    if (totalBW >= totalBWCrit) totalBWColor = critColor; else if (totalBW >= totalBWWarn) totalBWColor = warnColor; else totalBWColor = bgColor;
+                    if (totalBW == 0) totalBW = "N/A"; else totalBW = (int(totalBW) + int(((totalBW - int(totalBW)) * 10) + 0.501) / 10) "TB";
+                    bwPerDay=((totalBW * 1024)/ (onHours / 24));
+                    if (totalBW == "N/A") bwPerDay = "N/A"; else bwPerDay = (int(bwPerDay) + int(((bwPerDay - int(bwPerDay)) * 10) + 0.501) / 10) "GB";
+                    if (testAge > testAgeWarn) testAgeColor = critColor; else testAgeColor = bgColor;
+                    printf "<tr style=\"background-color:%s;\">" \
+                        "<td style=\"text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;\">/dev/%s</td> <!-- device -->\n" \
+                        "<td style=\"text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;\">%s</td> <!-- model -->\n" \
+                        "<td style=\"text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;\">%s</td> <!-- serial -->\n" \
+                        "<td style=\"text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;\">%s</td> <!-- capacity -->\n" \
+                        "<td style=\"text-align:center; background-color:%s; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;\">%s</td> <!-- smartStatusColor, smartStatus -->\n" \
+                        "<td style=\"text-align:center; background-color:%s; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;\">%s</td> <!-- tempColor, temp -->\n" \
+                        "<td style=\"text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;\">%s</td> <!-- onTime -->\n" \
+                        "<td style=\"text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;\">%s</td> <!-- startStop -->\n" \
+                        "<td style=\"text-align:center; background-color:%s; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;\">%s</td> <!-- mediaErrorsColor, mediaErrors -->\n" \
+                        "<td style=\"text-align:center; background-color:%s; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;\">%s</td> <!-- errorsLogsColor, errorsLogs -->\n" \
+                        "<td style=\"text-align:center; background-color:%s; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;\">%s</td> <!-- critWarningColor, critWarning -->\n" \
+                        "<td style=\"text-align:center; background-color:%s; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;\">%d%%</td> <!-- wearLevelingColor, wearLeveling -->\n" \
+                        "<td style=\"text-align:center; background-color:%s; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;\">%s</td> <!-- totalBWColor, totalBW -->\n" \
+                        "<td style=\"text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;\">%s</td> <!-- bwPerDay -->\n" \
+                        "<td style=\"text-align:center; background-color:%s; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;\">N/A</td> <!-- testAgeColor, testAge -->\n" \
+                        "<td style=\"text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;\">N/A</td> <!-- lastTestType -->\n" \
+                    "</tr>\n", bgColor, device, model, serial, capacity, smartStatusColor, smartStatus, tempColor, temp, onTime, startStop, mediaErrorsColor, mediaErrors, \
+                    errorsLogsColor, errorsLogs, critWarningColor, critWarning, wearLevelingColor, wearLeveling, totalBWColor, totalBW, \
+                    bwPerDay, testAgeColor;
+				}'
+				#                 "<td style=\"text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;\"></td>\n" \
+
+			) >> "$logfile"
+		fi
+	done
+
+    # End SMART summary table and summary section
+    (
+        echo "</table>"
+    ) >> "$logfile"
+fi
 
 
 ###### SSD SMART status summary table
@@ -472,7 +629,7 @@ if [ "${ssdExist}" = "true" ]; then
         echo "</tr>"
     ) >> "$logfile"
 
-    for drive in $drives; do
+    for drive in ${drives}; do
         if smartctl -i "/dev/${drive}" | grep -q "Solid State Device"; then
             (
                 # For each drive detected, run "smartctl -A -i" and parse its output. This whole section is a single, long statement, so I'll make all comments here.
@@ -593,11 +750,11 @@ fi
     echo "  <th style=\"text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;\">CRC<br>Errors</th>"
     echo "  <th style=\"text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;\">Seek<br>Error<br>Health</th>"
     echo "  <th style=\"text-align:center; width:100px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;\">Last Test<br>Age (days)</th>"
-    echo "  <th style=\"text-align:center; width:100px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;\">Last Test<br>Type</th></tr>"    
+    echo "  <th style=\"text-align:center; width:100px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;\">Last Test<br>Type</th></tr>"
     echo "</tr>"
 ) >> "$logfile"
 
-for drive in $drives; do
+for drive in ${drives}; do
     if smartctl -i "/dev/${drive}" | grep -q "SMART support is: Enabled"; then
         if ! smartctl -i "/dev/${drive}" | grep -q "Solid State Device"; then
         (
@@ -768,7 +925,7 @@ done
 
 
 ### SMART status for each drive
-for drive in $drives; do
+for drive in ${drives}; do
     if smartctl -i "/dev/${drive}" | grep -q "SMART support is: Enabled"; then
         # Gather brand and serial number of each drive
         brand="$(smartctl -ij "/dev/${drive}" | jq -Mre '.model_family | values')"
@@ -785,10 +942,10 @@ for drive in $drives; do
             echo "<br><br>"
         ) >> "${logfile}"
 
-    elif smartctl -a "/dev/${drive}" | grep -q "SMART overall-health self-assessment test result"; then
+    elif echo "${drive}" | grep -q "nvme"; then
         # Gather brand and serial number of each drive
-		nvmeSmartOut="$(smartctl -aj /dev/nvme0)"
-		brand="$(echo "${nvmeSmartOut}" | jq -Mre '.model_family| values')"
+		nvmeSmartOut="$(smartctl -aj "/dev/${drive}")"
+		brand="$(echo "${nvmeSmartOut}" | jq -Mre '.model_family | values')"
         if [ -z "${brand}" ]; then
             brand="$(echo "${nvmeSmartOut}" | jq -Mre '.model_name | values')";
         fi
@@ -803,9 +960,10 @@ for drive in $drives; do
 done
 
 # Remove some un-needed junk from the output
-sed -i '' -e '/smartctl 7.1/d' "${logfile}"
+sed -i '' -e '/smartctl [6-9].[0-9]/d' "${logfile}"
 sed -i '' -e '/Copyright/d' "${logfile}"
 sed -i '' -e '/=== START OF READ/d' "${logfile}"
+sed -i '' -e '/=== START OF SMART DATA SECTION ===/d' "${logfile}"
 sed -i '' -e '/SMART Attributes Data/d' "${logfile}"
 sed -i '' -e '/Vendor Specific SMART/d' "${logfile}"
 sed -i '' -e '/SMART Error Log Version/d' "${logfile}"
