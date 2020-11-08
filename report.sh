@@ -215,14 +215,14 @@ for pool in $pools; do
     scrubTime="N/A"
     statusOutput="$(zpool status "$pool")"
     if [ "$(echo "$statusOutput" | grep "scan" | awk '{print $2}')" = "scrub" ]; then
-        scrubRepBytes="$(echo "$statusOutput" | grep "scan" | awk '{print $4}')"
-        scrubErrors="$(echo "$statusOutput" | grep "scan" | awk '{print $10}')"
+        scrubRepBytes="$(echo "$statusOutput" | grep "scan" | awk '{gsub(/B/,"",$4); print $4}')"
+        scrubErrors="$(echo "$statusOutput" | grep "scan" | awk '{print $8}')"
         # Convert time/datestamp format presented by zpool status, compare to current date, calculate scrub age
-        scrubDate="$(echo "$statusOutput" | grep "scan" | awk '{print $17"-"$14"-"$15"_"$16}')"
+        scrubDate="$(echo "$statusOutput" | grep "scan" | awk '{print $15"-"$12"-"$13"_"$14}')"
         scrubTS="$(date -j -f "%Y-%b-%e_%H:%M:%S" "$scrubDate" "+%s")"
         currentTS="$(date "+%s")"
         scrubAge=$((((currentTS - scrubTS) + 43200) / 86400))
-        scrubTime="$(echo "$statusOutput" | grep "scan" | awk '{print $8}')"
+        scrubTime="$(echo "$statusOutput" | grep "scan" | awk '{print $6}')"
     fi
     # Check if scrub is in progress
     if [ "$(echo "$statusOutput"| grep "scan" | awk '{print $4}')" = "progress" ]; then
