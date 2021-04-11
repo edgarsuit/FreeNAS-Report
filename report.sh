@@ -497,7 +497,7 @@ if [ "${ssdExist}" = "true" ]; then
                 $1 ~ /^172$/{eraseFail=$10} \
                 $1 ~ /^187$/{offlineUnc=$10} \
                 $1 ~ /^199$/{crcErrors=$10} \
-                $1 ~ /^173$/{wearLeveling=$4} \
+                $1 ~ /^173$/ || $1 ~ /^233$/{wearLeveling=$4} \
                 /Sector Size/{sectorSize=$3} \
                 $1 ~ /^241$/{totalLBA=$10} \
                 END {
