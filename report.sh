@@ -119,6 +119,27 @@ fi
 # shellcheck source=/dev/null
 . "${configFile}"
 
+# Check if needed software is installed.
+PATH="${PATH}:/usr/local/sbin:/usr/local/bin"
+commands=(
+grep
+sed
+cut
+sleep
+bc
+smartctl
+jq
+ipmitool
+awk
+tar
+)
+for command in "${commands[@]}"; do
+	if ! type "${command}" &> /dev/null; then
+		echo "${command} is missing, please install" >&2
+		exit 100
+	fi
+done
+
 
 # Do not run if the config file has not been edited.
 if [ ! "${defaultFile}" = "0" ]; then
