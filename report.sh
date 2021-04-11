@@ -1,4 +1,5 @@
 #!/bin/bash
+# shellcheck disable=SC1004,SC2236
 
 #set -euxo pipefail
 
@@ -179,15 +180,15 @@ boundary="gc0p4Jq0M2Yt08jU534c0p"
 
 # Reorders the drives in ascending order
 drives=$(for drive in $(sysctl -n kern.disks); do
-    if [ "$(smartctl -i /dev/"${drive}" | grep "SMART support is: Enabled")" ]; then
+    if smartctl -i "/dev/${drive}" | grep -q "SMART support is: Enabled"; then
         printf "%s " "${drive}"
     fi
 done | awk '{for (i=NF; i!=0 ; i--) print $i }')
 
 # Toggles the 'ssdExist' flag to true if SSDs are detected in order to add the summary table
-if [ "$includeSSD" == "true" ]; then
+if [ "${includeSSD}" == "true" ]; then
     for drive in $drives; do
-        if [ "$(smartctl -i /dev/"${drive}" | grep "Solid State Device")" ]; then
+        if smartctl -i "/dev/${drive}" | grep -q "Solid State Device"; then
             ssdExist="true"
         else
             ssdExist="false"
@@ -440,7 +441,7 @@ echo "</table>" >> "$logfile"
 
 
 ###### SSD SMART status summary table
-if [ "$ssdExist" == "true" ]; then
+if [ "${ssdExist}" == "true" ]; then
     (
         # Write HTML table headers to log file
         echo "<br><br>"
@@ -469,7 +470,7 @@ if [ "$ssdExist" == "true" ]; then
     ) >> "$logfile"
 
     for drive in $drives; do
-        if [ "$(smartctl -i /dev/"${drive}" | grep "Solid State Device")" ]; then
+        if smartctl -i "/dev/${drive}" | grep -q "Solid State Device"; then
             (
                 # For each drive detected, run "smartctl -A -i" and parse its output. This whole section is a single, long statement, so I'll make all comments here.
                 # Start by passing awk variables (all the -v's) used in other parts of the script. Other variables are calculated in-line with other smartctl calls.
@@ -477,12 +478,12 @@ if [ "$ssdExist" == "true" ]; then
                 # After parsing the output, compute other values (last test's age, on time in YY-MM-DD-HH).
                 # After these computations, determine the row's background color (alternating as above, subbing in other colors from the palate as needed).
                 # Finally, print the HTML code for the current row of the table with all the gathered data.
-                smartctl -A -i /dev/"$drive" | \
+                smartctl -A -i "/dev/${drive}" | \
                 awk -v device="$drive" -v tempWarn="$tempWarn" -v tempCrit="$tempCrit" -v sectorsCrit="$sectorsCrit" -v testAgeWarn="$testAgeWarn" \
                 -v okColor="$okColor" -v warnColor="$warnColor" -v critColor="$critColor" -v altColor="$altColor" -v powerTimeFormat="$powerTimeFormat" \
                 -v totalBWWarn="$totalBWWarn" -v totalBWCrit="$totalBWCrit" -v lifeRemainWarn="$lifeRemainWarn" -v lifeRemainCrit="$lifeRemainCrit" \
-                -v lastTestHours="$(smartctl -l selftest /dev/"$drive" | grep "# 1" | awk '{print $9}')" \
-                -v lastTestType="$(smartctl -l selftest /dev/"$drive" | grep "# 1" | awk '{print $3}')" \
+                -v lastTestHours="$(smartctl -l selftest "/dev/${drive}" | grep "# 1" | awk '{print $9}')" \
+                -v lastTestType="$(smartctl -l selftest "/dev/${drive}" | grep "# 1" | awk '{print $3}')" \
                 -v smartStatus="$(smartctl -H /dev/"$drive" | grep "SMART overall-health" | awk '{print $6}')" ' \
                 /Device Model:/{$1="";$2=""; model=$0} \
                 /Serial Number:/{serial=$3} \
@@ -589,8 +590,8 @@ fi
 ) >> "$logfile"
 
 for drive in $drives; do
-    if [ "$(smartctl -i /dev/"${drive}" | grep "SMART support is: Enabled")" ]; then
-        if ! [ "$(smartctl -i /dev/"${drive}" | grep "Solid State Device")" ]; then
+    if smartctl -i "/dev/${drive}" | grep -q "SMART support is: Enabled"; then
+        if ! smartctl -i "/dev/${drive}" | grep -q "Solid State Device"; then
         (
             # For each drive detected, run "smartctl -A -i" and parse its output. This whole section is a single, long statement, so I'll make all comments here.
             # Start by passing awk variables (all the -v's) used in other parts of the script. Other variables are calculated in-line with other smartctl calls.
@@ -733,9 +734,9 @@ if [ "$reportUPS" == "true" ]; then
             echo ""
         fi
     done
-    ) >> ${logfile}
+    ) >> "${logfile}"
 
-    echo "</pre>" >> ${logfile}
+    echo "</pre>" >> "${logfile}"
 fi
 
 
@@ -760,31 +761,31 @@ done
 
 ### SMART status for each drive
 for drive in $drives; do
-    if [ "$(smartctl -i /dev/"${drive}" | grep "SMART support is: Enabled")" ]; then
+    if smartctl -i "/dev/${drive}" | grep -q "SMART support is: Enabled"; then
         # Gather brand and serial number of each drive
-        brand="$(smartctl -i /dev/"$drive" | grep "Model Family" | awk '{print $3, $4, $5}')"
+        brand="$(smartctl -i "/dev/${drive}" | grep "Model Family" | awk '{print $3, $4, $5}')"
         if [ "$brand" == "" ]; then
-            brand="$(smartctl -i /dev/"$drive" | grep "Device Model" | awk '{print $3, $4, $5}')";
+            brand="$(smartctl -i "/dev/${drive}" | grep "Device Model" | awk '{print $3, $4, $5}')";
         fi
-        serial="$(smartctl -i /dev/"$drive" | grep "Serial Number" | awk '{print $3}')"
+        serial="$(smartctl -i "/dev/${drive}" | grep "Serial Number" | awk '{print $3}')"
         (
             # Create a simple header and drop the output of some basic smartctl commands
             echo "<b>########## SMART status report for ${drive} drive (${brand}: ${serial}) ##########</b>"
-            smartctl -H -A -l error /dev/"$drive"
-            smartctl -l selftest /dev/"$drive" | grep "Extended \\|Num" | cut -c6- | head -2
-            smartctl -l selftest /dev/"$drive" | grep "Short \\|Num" | cut -c6- | head -2 | tail -n -1
+            smartctl -H -A -l error "/dev/${drive}"
+            smartctl -l selftest "/dev/${drive}" | grep "Extended \\|Num" | cut -c6- | head -2
+            smartctl -l selftest "/dev/${drive}" | grep "Short \\|Num" | cut -c6- | head -2 | tail -n -1
             echo "<br><br>"
-        ) >> "$logfile"
+        ) >> "${logfile}"
     fi
 done
 
 # Remove some un-needed junk from the output
-sed -i '' -e '/smartctl 6.3/d' "$logfile"
-sed -i '' -e '/Copyright/d' "$logfile"
-sed -i '' -e '/=== START OF READ/d' "$logfile"
-sed -i '' -e '/SMART Attributes Data/d' "$logfile"
-sed -i '' -e '/Vendor Specific SMART/d' "$logfile"
-sed -i '' -e '/SMART Error Log Version/d' "$logfile"
+sed -i '' -e '/smartctl 6.3/d' "${logfile}"
+sed -i '' -e '/Copyright/d' "${logfile}"
+sed -i '' -e '/=== START OF READ/d' "${logfile}"
+sed -i '' -e '/SMART Attributes Data/d' "${logfile}"
+sed -i '' -e '/Vendor Specific SMART/d' "${logfile}"
+sed -i '' -e '/SMART Error Log Version/d' "${logfile}"
 
 ### End details section, close MIME section
 (
