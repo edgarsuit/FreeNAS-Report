@@ -190,6 +190,7 @@ if [ "${includeSSD}" == "true" ]; then
     for drive in $drives; do
         if smartctl -i "/dev/${drive}" | grep -q "Solid State Device"; then
             ssdExist="true"
+            break
         else
             ssdExist="false"
         fi
@@ -441,7 +442,7 @@ echo "</table>" >> "$logfile"
 
 
 ###### SSD SMART status summary table
-if [ "${ssdExist}" == "true" ]; then
+if [ "${ssdExist}" = "true" ]; then
     (
         # Write HTML table headers to log file
         echo "<br><br>"
