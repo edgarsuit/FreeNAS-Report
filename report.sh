@@ -51,6 +51,12 @@
 # - Fix SSD SMART reporting
 # - Add support for conveyance test
 
+# Write out a default config file
+function rpConfig {
+	tee > "${configFile}" <<"EOF"
+
+# Set this to 0 to enable
+defaultFile="1"
 
 ###### User-definable Parameters
 ### Email Address
@@ -78,6 +84,47 @@ powerTimeFormat="ymdh"  # Format for power-on hours string, valid options are "y
 configBackup="false"     # Change to "false" to skip config backup (which renders next two options meaningless); "true" to keep config backups enabled
 saveBackup="true"       # Change to "false" to delete FreeNAS config backup after mail is sent; "true" to keep it in dir below
 backupLocation="/path/to/config/backup"   # Directory in which to save FreeNAS config backups
+
+
+EOF
+	exit 0
+}
+
+
+#
+# Main Script Starts Here
+#
+
+while getopts ":c:" OPTION; do
+	case "${OPTION}" in
+		c)
+			configFile="${OPTARG}"
+		;;
+		?)
+			# If an unknown flag is used (or -?):
+			echo "${0} {-c configFile}" >&2
+			exit 1
+		;;
+	esac
+done
+
+if [ -z "${configFile}" ]; then
+	echo "Please specify a config file location." >&2
+	exit 1
+elif [ ! -f "${configFile}" ]; then
+	rpConfig
+fi
+
+# Source external config file
+# shellcheck source=/dev/null
+. "${configFile}"
+
+
+# Do not run if the config file has not been edited.
+if [ ! "${defaultFile}" = "0" ]; then
+	echo "Please edit the config file for your setup" >&2
+	exit 1
+fi
 
 
 ###### Auto-generated Parameters

@@ -1,2 +1,4 @@
 install.sh
 *.sublime*
+
+report.cfg
