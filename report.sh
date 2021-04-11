@@ -369,16 +369,16 @@ for drive in $drives; do
         /Serial Number:/{serial=$3} \
         /User Capacity:/{capacity=$5 $6} \
         /Rotation Rate:/{rpm=$3} \
-        /Temperature_Celsius/{temp=($10 + 0)} \
-        /Power_On_Hours/{onHours=$10} \
-        /Start_Stop_Count/{startStop=$10} \
-        /Spin_Retry_Count/{spinRetry=$10} \
-        /Reallocated_Sector/{reAlloc=$10} \
-        /Reallocated_Event_Count/{reAllocEvent=$10} \
-        /Current_Pending_Sector/{pending=$10} \
-        /Offline_Uncorrectable/{offlineUnc=$10} \
-        /UDMA_CRC_Error_Count/{crcErrors=$10} \
-        /Seek_Error_Rate/{seekErrorHealth=$4} \
+        $1 ~ /^194$/{temp=($10 + 0)} \
+        $1 ~ /^9$/{onHours=$10} \
+        $1 ~ /^4$/{startStop=$10} \
+        $1 ~ /^10$/{spinRetry=$10} \
+        $1 ~ /^5$/{reAlloc=$10} \
+        $1 ~ /^196$/{reAllocEvent=$10} \
+        $1 ~ /^197$/{pending=$10} \
+        $1 ~ /^198$/{offlineUnc=$10} \
+        $1 ~ /^199$/{crcErrors=$10} \
+        $1 ~ /^7$/{seekErrorHealth=$4} \
         END {
             testAge=int((onHours - lastTestHours) / 24);
             yrs=int(onHours / 8760);
