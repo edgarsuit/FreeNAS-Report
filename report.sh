@@ -479,27 +479,32 @@ if [ "${ssdExist}" = "true" ]; then
                 # After parsing the output, compute other values (last test's age, on time in YY-MM-DD-HH).
                 # After these computations, determine the row's background color (alternating as above, subbing in other colors from the palate as needed).
                 # Finally, print the HTML code for the current row of the table with all the gathered data.
-                smartctl -A -i "/dev/${drive}" | \
+                ssdInfoSmrt="$(smartctl -A -i "/dev/${drive}")"
+                if echo "${ssdInfoSmrt}" | grep -q "^231"; then
+            		ssdInfoSmrt="$(echo "${ssdInfoSmrt}" | grep -v '^233')"
+            	fi
+                echo "${ssdInfoSmrt}" | \
                 awk -v device="$drive" -v tempWarn="$tempWarn" -v tempCrit="$tempCrit" -v sectorsCrit="$sectorsCrit" -v testAgeWarn="$testAgeWarn" \
                 -v okColor="$okColor" -v warnColor="$warnColor" -v critColor="$critColor" -v altColor="$altColor" -v powerTimeFormat="$powerTimeFormat" \
                 -v totalBWWarn="$totalBWWarn" -v totalBWCrit="$totalBWCrit" -v lifeRemainWarn="$lifeRemainWarn" -v lifeRemainCrit="$lifeRemainCrit" \
-                -v lastTestHours="$(smartctl -l selftest "/dev/${drive}" | grep "# 1" | awk '{print $9}')" \
-                -v lastTestType="$(smartctl -l selftest "/dev/${drive}" | grep "# 1" | awk '{print $3}')" \
+                -v lastTestHours="$(smartctl -l selftest "/dev/${drive}" | grep '# 1' | awk '{print $9}')" \
+                -v lastTestType="$(smartctl -l selftest "/dev/${drive}" | grep '# 1' | awk '{print $3}')" \
                 -v smartStatus="$(smartctl -H /dev/"$drive" | grep "SMART overall-health" | awk '{print $6}')" ' \
                 /Device Model:/{$1="";$2=""; model=$0} \
                 /Serial Number:/{serial=$3} \
                 /User Capacity:/{capacity=$5 $6} \
                 $1 ~ /^194$/{temp=($10 + 0)} \
                 $1 ~ /^9$/{onHours=$10} \
-                $1 ~ /^4$/{startStop=$10} \
+                $1 ~ /^12$/{startStop=$10} \
                 $1 ~ /^5$/{reAlloc=$10} \
                 $1 ~ /^171$/{progFail=$10} \
                 $1 ~ /^172$/{eraseFail=$10} \
                 $1 ~ /^187$/{offlineUnc=$10} \
                 $1 ~ /^199$/{crcErrors=$10} \
-                $1 ~ /^173$/ || $1 ~ /^233$/{wearLeveling=$4} \
+                {if ($1 ~ /^173$/) {wearLeveling=$4}} \
+                {if ($1 ~ /^(231)|(233)$/) {wearLeveling=$4}} \
                 /Sector Size/{sectorSize=$3} \
-                $1 ~ /^241$/{totalLBA=$10} \
+                $1 ~ /^241$/ || $1 ~ /^246$/{totalLBA=$10} \
                 END {
                     testAge=int((onHours - lastTestHours) / 24);
                     yrs=int(onHours / 8760);
