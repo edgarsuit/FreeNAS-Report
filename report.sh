@@ -486,12 +486,12 @@ if [ "${ssdExist}" = "true" ]; then
             		ssdInfoSmrt="$(echo "${ssdInfoSmrt}" | grep -v '^233')"
             	fi
                 echo "${ssdInfoSmrt}" | \
-                awk -v device="$drive" -v tempWarn="$tempWarn" -v tempCrit="$tempCrit" -v sectorsCrit="$sectorsCrit" -v testAgeWarn="$testAgeWarn" \
-                -v okColor="$okColor" -v warnColor="$warnColor" -v critColor="$critColor" -v altColor="$altColor" -v powerTimeFormat="$powerTimeFormat" \
-                -v totalBWWarn="$totalBWWarn" -v totalBWCrit="$totalBWCrit" -v lifeRemainWarn="$lifeRemainWarn" -v lifeRemainCrit="$lifeRemainCrit" \
-                -v lastTestHours="$(smartctl -l selftest "/dev/${drive}" | grep '# 1' | awk '{print $9}')" \
-                -v lastTestType="$(smartctl -l selftest "/dev/${drive}" | grep '# 1' | awk '{print $3}')" \
-                -v smartStatus="$(smartctl -H /dev/"$drive" | grep "SMART overall-health" | awk '{print $6}')" ' \
+                awk -v device="${drive}" -v tempWarn="${tempWarn}" -v tempCrit="${tempCrit}" -v sectorsCrit="${sectorsCrit}" -v testAgeWarn="${testAgeWarn}" \
+                -v okColor="${okColor}" -v warnColor="${warnColor}" -v critColor="${critColor}" -v altColor="${altColor}" -v powerTimeFormat="${powerTimeFormat}" \
+                -v totalBWWarn="${totalBWWarn}" -v totalBWCrit="${totalBWCrit}" -v lifeRemainWarn="${lifeRemainWarn}" -v lifeRemainCrit="${lifeRemainCrit}" \
+                -v lastTestHours="$(smartctl -jl selftest "/dev/${drive}" | jq -Mre '.ata_smart_self_test_log.standard.table[0].lifetime_hours | values')" \
+                -v lastTestType="$(smartctl -jl selftest "/dev/${drive}" | jq -Mre '.ata_smart_self_test_log.standard.table[0].type.string | values')" \
+                -v smartStatus="$(smartctl -H "/dev/${drive}" | grep "SMART overall-health" | awk '{print $6}')" ' \
                 /Device Model:/{$1="";$2=""; model=$0} \
                 /Serial Number:/{serial=$3} \
                 /User Capacity:/{capacity=$5 $6} \
@@ -608,11 +608,11 @@ for drive in $drives; do
             # After these computations, determine the row's background color (alternating as above, subbing in other colors from the palate as needed).
             # Finally, print the HTML code for the current row of the table with all the gathered data.
             smartctl -A -i /dev/"$drive" | \
-            awk -v device="$drive" -v tempWarn="$tempWarn" -v tempCrit="$tempCrit" -v sectorsCrit="$sectorsCrit" -v testAgeWarn="$testAgeWarn" \
-            -v okColor="$okColor" -v warnColor="$warnColor" -v critColor="$critColor" -v altColor="$altColor" -v powerTimeFormat="$powerTimeFormat" \
-            -v lastTestHours="$(smartctl -l selftest /dev/"$drive" | grep "# 1" | awk '{print $9}')" \
-            -v lastTestType="$(smartctl -l selftest /dev/"$drive" | grep "# 1" | awk '{print $3}')" \
-            -v smartStatus="$(smartctl -H /dev/"$drive" | grep "SMART overall-health" | awk '{print $6}')" ' \
+            awk -v device="${drive}" -v tempWarn="${tempWarn}" -v tempCrit="${tempCrit}" -v sectorsCrit="${sectorsCrit}" -v testAgeWarn="${testAgeWarn}" \
+            -v okColor="${okColor}" -v warnColor="${warnColor}" -v critColor="${critColor}" -v altColor="${altColor}" -v powerTimeFormat="${powerTimeFormat}" \
+            -v lastTestHours="$(smartctl -jl selftest "/dev/${drive}" | jq -Mre '.ata_smart_self_test_log.standard.table[0].lifetime_hours | values')" \
+            -v lastTestType="$(smartctl -jl selftest "/dev/${drive}" | jq -Mre '.ata_smart_self_test_log.standard.table[0].type.string | values')" \
+            -v smartStatus="$(smartctl -H "/dev/${drive}" | grep "SMART overall-health" | awk '{print $6}')" ' \
             /Device Model:/{$1="";$2=""; model=$0} \
             /Serial Number:/{serial=$3} \
             /User Capacity:/{capacity=$5 $6} \
