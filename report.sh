@@ -463,144 +463,223 @@ echo "</table>" >> "$logfile"
 ### SMART status summary tables
 
 
-###### NVMe SMART status summary table
-if [ "${NVMeExist}" = "true" ]; then
-    (
-        # Write HTML table headers to log file
-        echo "<br><br>"
-        echo "<table style=\"border: 1px solid black; border-collapse: collapse;\">"
-        echo "<tr><th colspan=\"18\" style=\"text-align:center; font-size:20px; height:40px; font-family:courier;\">NVMe SMART Status Report Summary</th></tr>"
-        echo "<tr>"
+# shellcheck disable=SC2155
+function NVMeSummary () {
 
-        echo "  <th style=\"text-align:center; width:100px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;\">Device</th>" # Device
+	###### NVMe SMART status summary table
+	(
+		# Write HTML table headers to log file
+		echo '<br><br>'
+		echo '<table style="border: 1px solid black; border-collapse: collapse;">'
+		echo '<tr><th colspan="18" style="text-align:center; font-size:20px; height:40px; font-family:courier;">NVMe SMART Status Report Summary</th></tr>'
+		echo '<tr>'
 
-        echo "  <th style=\"text-align:center; width:130px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;\">Model</th>" # Model
+		echo '  <th style="text-align:center; width:100px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Device</th>' # Device
 
-        echo "  <th style=\"text-align:center; width:130px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;\">Serial<br>Number</th>" # Serial Number
+		echo '  <th style="text-align:center; width:130px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Model</th>' # Model
 
-        echo "  <th style=\"text-align:center; width:100px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;\">Capacity</th>" # Capacity
+		echo '  <th style="text-align:center; width:130px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Serial<br>Number</th>' # Serial Number
 
-        echo "  <th style=\"text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;\">SMART<br>Status</th>" # SMART Status
+		echo '  <th style="text-align:center; width:100px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Capacity</th>' # Capacity
 
-        echo "  <th style=\"text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;\">Temp</th>" # Temp
+		echo '  <th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">SMART<br>Status</th>' # SMART Status
 
-        echo "  <th style=\"text-align:center; width:120px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;\">Power-On<br>Time<br>($powerTimeFormat)</th>" # Power-On Time
+		echo '  <th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Temp</th>' # Temp
 
-        echo "  <th style=\"text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;\">Power<br>Cycle<br>Count</th>" # Power Cycle Count
+		echo '  <th style="text-align:center; width:120px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Power-On<br>Time<br>('"$powerTimeFormat"')</th>' # Power-On Time
 
-        echo "  <th style=\"text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;\">Integrity<br>Errors</th>" # Integrity Errors
+		echo '  <th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Power<br>Cycle<br>Count</th>' # Power Cycle Count
 
-        echo "  <th style=\"text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;\">Error<br>Log<br>Entries</th>" # Error Log Entries
+		echo '  <th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Integrity<br>Errors</th>' # Integrity Errors
 
-        echo "  <th style=\"text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;\">Critical<br>Warning</th>" # Critical Warning
+		echo '  <th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Error<br>Log<br>Entries</th>' # Error Log Entries
 
-        echo "  <th style=\"text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;\">Wear<br>Leveling<br>Count</th>" # Wear Leveling Count
+		echo '  <th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Critical<br>Warning</th>' # Critical Warning
 
-        echo "  <th style=\"text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;\">Total<br>Bytes<br>Written</th>" # Total Bytes Written
+		echo '  <th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Wear<br>Leveling<br>Count</th>' # Wear Leveling Count
 
-        echo "  <th style=\"text-align:center; width:100px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;\">Bytes Written<br>(per Day)</th>" # Bytes Written (per Day)
+		echo '  <th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Total<br>Bytes<br>Written</th>' # Total Bytes Written
 
-        echo "  <th style=\"text-align:center; width:100px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;\">Last Test<br>Age (days)</th>" # Last Test Age (days)
+		echo '  <th style="text-align:center; width:100px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Bytes Written<br>(per Day)</th>' # Bytes Written (per Day)
 
-        echo "  <th style=\"text-align:center; width:100px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;\">Last Test<br>Type</th></tr>" # Last Test Type
+		echo '  <th style="text-align:center; width:100px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Last Test<br>Age (days)</th>' # Last Test Age (days)
 
-        echo "</tr>"
-    ) >> "$logfile"
+		echo '  <th style="text-align:center; width:100px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Last Test<br>Type</th></tr>' # Last Test Type
+
+		echo '</tr>'
+	) >> "${logfile}"
 
 
 	for drive in ${drives}; do
-        if echo "${drive}" | grep -q "nvme"; then
+		local altRow="false"
+		if echo "${drive}" | grep -q "nvme"; then
+			# For each drive detected, run "smartctl -Aij" and parse its output. This whole section is a single, long statement, so I'll make all comments here.
+			# Start by passing awk variables (all the -v's) used in other parts of the script. Other variables are calculated in-line with other smartctl calls.
+			# Next, pull values out of the original "smartctl -Aij" statement by searching for the text between the //'s.
+			# After parsing the output, compute other values (last test's age, on time in YY-MM-DD-HH).
+			# After these computations, determine the row's background color (alternating as above, subbing in other colors from the palate as needed).
+			# Finally, print the HTML code for the current row of the table with all the gathered data.
+
+			# Get drive attributes
+			local nvmeSmarOut="$(smartctl -Aij "/dev/${drive}")"
+
+			local model="$(echo "${nvmeSmarOut}" | jq -Mre '.model_name | values')"
+			local serial="$(echo "${nvmeSmarOut}" | jq -Mre '.serial_number | values')"
+			local capacity="[$(echo "${nvmeSmarOut}" | jq -Mre '(.user_capacity.bytes/1000215216) | values')GB]"
+			local temp="$(echo "${nvmeSmarOut}" | jq -Mre '.temperature.current | values')"
+			local onHours="$(echo "${nvmeSmarOut}" | jq -Mre '.power_on_time.hours | values')"
+			local startStop="$(echo "${nvmeSmarOut}" | jq -Mre '.power_cycle_count | values')"
+			local mediaErrors="$(echo "${nvmeSmarOut}" | jq -Mre '.nvme_smart_health_information_log.media_errors | values')"
+			local errorsLogs="$(echo "${nvmeSmarOut}" | jq -Mre '.nvme_smart_health_information_log.num_err_log_entries | values')"
+			local critWarning="$(echo "${nvmeSmarOut}" | jq -Mre '.nvme_smart_health_information_log.critical_warning | values')"
+			local wearLeveling="$(echo "${nvmeSmarOut}" | jq -Mre '.nvme_smart_health_information_log.available_spare | values')"
+			local sectorSize="$(echo "${nvmeSmarOut}" | jq -Mre '.logical_block_size | values')"
+			local totalLBA="$(echo "${nvmeSmarOut}" | jq -Mre '.nvme_smart_health_information_log.data_units_written | values')"
+
+			local smartStatus="$(smartctl -H "/dev/${drive}" | grep "SMART overall-health" | awk '{print $6}')"
+
+			# Get more useful times from hours
+			local testAge="$(bc <<< "(${onHours} - (${onHours} - 2) ) / 24")" # ${lastTestHours}
+			local yrs="$(bc <<< "${onHours} / 8760")"
+			local mos="$(bc <<< "(${onHours} % 8760) / 730")"
+			local dys="$(bc <<< "((${onHours} % 8760) % 730) / 24")"
+			local hrs="$(bc <<< "((${onHours} % 8760) % 730) % 24")"
+
+			# Set Power-On Time format
+			if [ "${powerTimeFormat}" = "ymdh" ]; then
+				local onTime="${yrs}y ${mos}m ${dys}d ${hrs}h"
+			elif [ "${powerTimeFormat}" = "ymd" ]; then
+				local onTime="${yrs}y ${mos}m ${dys}d"
+			elif [ "${powerTimeFormat}" = "ym" ]; then
+				local onTime="${yrs}y ${mos}m"
+			elif [ "${powerTimeFormat}" = "y" ]; then
+				local onTime="${yrs}y"
+			else
+				local onTime="${yrs}y ${mos}m ${dys}d ${hrs}h"
+			fi
+
+			# Set the row background color
+			if [ "${altRow}" = "false" ]; then
+				local bgColor="#ffffff"
+				altRow="true"
+			else
+				local bgColor="${altColor}"
+				altRow="false"
+			fi
+
+			# Colorize smart status
+			if [ ! "${smartStatus}" = "PASSED" ]; then
+				local smartStatusColor="${critColor}"
+			else
+				local smartStatusColor="${okColor}"
+			fi
+
+			# Colorize temp
+			if [ "${temp}" -ge "${tempCrit}" ]; then
+				local tempColor="${critColor}"
+			elif [ "${temp}" -ge "${tempWarn}" ]; then
+				tempColor="${warnColor}"
+			else
+				local tempColor="${bgColor}"
+			fi
+			if [ "${temp}" = "0" ]; then
+				local temp="N/A"
+			else
+				local temp="${temp}&deg;C"
+			fi
+
+			# Colorize log errors
+			if [ "${errorsLogs:=0}" -gt "${sectorsCrit}" ]; then
+				local errorsLogsColor="${critColor}"
+			elif [ ! "${errorsLogs}" = "0" ]; then
+				local errorsLogsColor="${warnColor}"
+			else
+				local errorsLogsColor="${bgColor}"
+			fi
+
+			# Colorize warnings
+			if [ "${critWarning:=0}" -gt "${sectorsCrit}" ]; then
+				local critWarningColor="${critColor}"
+			elif [ ! "${critWarning}" = "0" ]; then
+				local critWarningColor="${warnColor}"
+			else
+				local critWarningColor="${bgColor}"
+			fi
+
+			# Colorize Media Errors
+			if [ ! "${mediaErrors}" = "0" ]; then
+				local mediaErrorsColor="${warnColor}"
+			else
+				local mediaErrorsColor="${bgColor}"
+			fi
+
+			# Colorize Wear Leveling
+			if [ "${wearLeveling}" -le "${lifeRemainCrit}" ]; then
+				local wearLevelingColor="${critColor}"
+			elif [ "${wearLeveling}" -le "${lifeRemainWarn}" ]; then
+				local wearLevelingColor="${warnColor}"
+			else
+				local wearLevelingColor="${bgColor}"
+			fi
+
+			# Colorize & derive write stats
+			local totalBW="$(bc <<< "(${totalLBA} * ${sectorSize}) / (10^9)")"
+			if [ "${totalBW}" -ge "${totalBWCrit}" ]; then
+				local totalBWColor="${critColor}"
+			elif [ "${totalBW}" -ge "${totalBWWarn}" ]; then
+				local totalBWColor="${warnColor}"
+			else
+				local totalBWColor="${bgColor}"
+			fi
+			if [ "${totalBW}" = "0" ]; then
+				totalBW="N/A"
+				bwPerDay="N/A"
+			else
+				bwPerDay="$(bc <<< "(${totalBW} * 1024) / (${onHours} / 24)")GB"
+				totalBW="${totalBW}TB"
+			fi
+
+			# Colorize test age
+			if [ "${testAge}" -gt "${testAgeWarn}" ]; then
+				testAgeColor="${critColor}"
+			else
+				testAgeColor="${bgColor}"
+			fi
+
+
 			(
-				# For each drive detected, run "smartctl -A -i" and parse its output. This whole section is a single, long statement, so I'll make all comments here.
-				# Start by passing awk variables (all the -v's) used in other parts of the script. Other variables are calculated in-line with other smartctl calls.
-				# Next, pull values out of the original "smartctl -A -i" statement by searching for the text between the //'s.
-				# After parsing the output, compute other values (last test's age, on time in YY-MM-DD-HH).
-				# After these computations, determine the row's background color (alternating as above, subbing in other colors from the palate as needed).
-				# Finally, print the HTML code for the current row of the table with all the gathered data.
-				nvmeSmarOut="$(smartctl -Aij "/dev/${drive}")"
-				model="$(echo "${nvmeSmarOut}" | jq -Mre '.model_name | values')"
-				serial="$(echo "${nvmeSmarOut}" | jq -Mre '.serial_number | values')"
-				capacity="[$(echo "${nvmeSmarOut}" | jq -Mre '(.user_capacity.bytes/1000215216) | values')GB]"
-				temp="$(echo "${nvmeSmarOut}" | jq -Mre '.temperature.current | values')"
-				onHours="$(echo "${nvmeSmarOut}" | jq -Mre '.power_on_time.hours | values')"
-				startStop="$(echo "${nvmeSmarOut}" | jq -Mre '.power_cycle_count | values')"
-				mediaErrors="$(echo "${nvmeSmarOut}" | jq -Mre '.nvme_smart_health_information_log.media_errors | values')"
-				errorsLogs="$(echo "${nvmeSmarOut}" | jq -Mre '.nvme_smart_health_information_log.num_err_log_entries | values')"
-				critWarning="$(echo "${nvmeSmarOut}" | jq -Mre '.nvme_smart_health_information_log.critical_warning | values')"
-				wearLeveling="$(echo "${nvmeSmarOut}" | jq -Mre '.nvme_smart_health_information_log.available_spare | values')"
-				sectorSize="$(echo "${nvmeSmarOut}" | jq -Mre '.logical_block_size | values')"
-				totalLBA="$(echo "${nvmeSmarOut}" | jq -Mre '.user_capacity.blocks | values')"
-
-				smartStatus="$(smartctl -H "/dev/${drive}" | grep "SMART overall-health" | awk '{print $6}')"
-
-
-				smartctl -Ai "/dev/${drive}" | awk -v device="${drive}" -v tempWarn="${tempWarn}" -v tempCrit="${tempCrit}" -v okColor="${okColor}" \
-				-v warnColor="${warnColor}" -v critColor="${critColor}" -v altColor="${altColor}" \
-				-v powerTimeFormat="${powerTimeFormat}" \
-                -v totalBWWarn="${totalBWWarn}" -v totalBWCrit="${totalBWCrit}" -v lifeRemainWarn="${lifeRemainWarn}" -v lifeRemainCrit="${lifeRemainCrit}" \
-				-v model="${model}" -v serial="${serial}" -v capacity="${capacity}" -v temp="${temp}" -v onHours="${onHours}" \
-				-v startStop="${startStop}" -v mediaErrors="${mediaErrors}" -v errorsLogs="${errorsLogs}" \
-				-v critWarning="${critWarning}" -v wearLeveling="${wearLeveling}" -v sectorSize="${sectorSize}" \
-				-v totalLBA="${totalLBA}" \
-				-v smartStatus="${smartStatus}" -v lastTestHours="$((onHours - 2))" ' \
-				END {
-                    testAge=int((onHours - lastTestHours) / 24);
-                    yrs=int(onHours / 8760);
-                    mos=int((onHours % 8760) / 730);
-                    dys=int(((onHours % 8760) % 730) / 24);
-                    hrs=((onHours % 8760) % 730) % 24;
-                    if (powerTimeFormat == "ymdh") onTime=yrs "y " mos "m " dys "d " hrs "h ";
-                    else if (powerTimeFormat == "ymd") onTime=yrs "y " mos "m " dys "d ";
-                    else if (powerTimeFormat == "ym") onTime=yrs "y " mos "m ";
-                    else if (powerTimeFormat == "y") onTime=yrs "y ";
-                    else onTime=yrs "y " mos "m " dys "d " hrs "h ";
-                    if ((substr(device, length(device), 1) + 0) % 2 == 1) bgColor = "#ffffff"; else bgColor = altColor;
-                    if (smartStatus != "PASSED") smartStatusColor = critColor; else smartStatusColor = okColor;
-                    if (temp >= tempCrit) tempColor = critColor; else if (temp >= tempWarn) tempColor = warnColor; else tempColor = bgColor;
-                    if (temp == 0) temp = "N/A"; else temp = temp "*C";
-                    if ((reAlloc + 0) > sectorsCrit) reAllocColor = critColor; else if (reAlloc != 0) reAllocColor = warnColor; else reAllocColor = bgColor;
-                    if ((errorsLogs + 0) > sectorsCrit) errorsLogsColor = critColor; else if (errorsLogs != 0) errorsLogsColor = warnColor; else errorsLogsColor = bgColor;
-                    if ((eraseFail + 0) > sectorsCrit) eraseFailColor = critColor; else if (eraseFail != 0) eraseFailColor = warnColor; else eraseFailColor = bgColor;
-                    if ((critWarning + 0) > sectorsCrit) critWarningColor = critColor; else if (critWarning != 0) critWarningColor = warnColor; else critWarningColor = bgColor;
-                    if (mediaErrors != "0") mediaErrorsColor = warnColor; else mediaErrorsColor = bgColor;
-                    if (wearLeveling <= lifeRemainCrit) wearLevelingColor = critColor; else if (wearLeveling <= lifeRemainWarn) wearLevelingColor = warnColor; else wearLevelingColor = bgColor;
-                    totalBW=(((totalLBA * sectorSize) / 1048576) / 1048576);
-                    if (totalBW >= totalBWCrit) totalBWColor = critColor; else if (totalBW >= totalBWWarn) totalBWColor = warnColor; else totalBWColor = bgColor;
-                    if (totalBW == 0) totalBW = "N/A"; else totalBW = (int(totalBW) + int(((totalBW - int(totalBW)) * 10) + 0.501) / 10) "TB";
-                    bwPerDay=((totalBW * 1024)/ (onHours / 24));
-                    if (totalBW == "N/A") bwPerDay = "N/A"; else bwPerDay = (int(bwPerDay) + int(((bwPerDay - int(bwPerDay)) * 10) + 0.501) / 10) "GB";
-                    if (testAge > testAgeWarn) testAgeColor = critColor; else testAgeColor = bgColor;
-                    printf "<tr style=\"background-color:%s;\">" \
-                        "<td style=\"text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;\">/dev/%s</td> <!-- device -->\n" \
-                        "<td style=\"text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;\">%s</td> <!-- model -->\n" \
-                        "<td style=\"text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;\">%s</td> <!-- serial -->\n" \
-                        "<td style=\"text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;\">%s</td> <!-- capacity -->\n" \
-                        "<td style=\"text-align:center; background-color:%s; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;\">%s</td> <!-- smartStatusColor, smartStatus -->\n" \
-                        "<td style=\"text-align:center; background-color:%s; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;\">%s</td> <!-- tempColor, temp -->\n" \
-                        "<td style=\"text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;\">%s</td> <!-- onTime -->\n" \
-                        "<td style=\"text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;\">%s</td> <!-- startStop -->\n" \
-                        "<td style=\"text-align:center; background-color:%s; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;\">%s</td> <!-- mediaErrorsColor, mediaErrors -->\n" \
-                        "<td style=\"text-align:center; background-color:%s; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;\">%s</td> <!-- errorsLogsColor, errorsLogs -->\n" \
-                        "<td style=\"text-align:center; background-color:%s; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;\">%s</td> <!-- critWarningColor, critWarning -->\n" \
-                        "<td style=\"text-align:center; background-color:%s; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;\">%d%%</td> <!-- wearLevelingColor, wearLeveling -->\n" \
-                        "<td style=\"text-align:center; background-color:%s; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;\">%s</td> <!-- totalBWColor, totalBW -->\n" \
-                        "<td style=\"text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;\">%s</td> <!-- bwPerDay -->\n" \
-                        "<td style=\"text-align:center; background-color:%s; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;\">N/A</td> <!-- testAgeColor, testAge -->\n" \
-                        "<td style=\"text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;\">N/A</td> <!-- lastTestType -->\n" \
-                    "</tr>\n", bgColor, device, model, serial, capacity, smartStatusColor, smartStatus, tempColor, temp, onTime, startStop, mediaErrorsColor, mediaErrors, \
-                    errorsLogsColor, errorsLogs, critWarningColor, critWarning, wearLevelingColor, wearLeveling, totalBWColor, totalBW, \
-                    bwPerDay, testAgeColor;
-				}'
-				#                 "<td style=\"text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;\"></td>\n" \
-
-			) >> "$logfile"
+				# Output the row
+				echo '<tr style="background-color:'"${bgColor}"';">'
+				echo '<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"/dev/${drive}"'</td> <!-- device -->'
+				echo '<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${model}"'</td> <!-- model -->'
+				echo '<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${serial}"'</td> <!-- serial -->'
+				echo '<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${capacity}"'</td> <!-- capacity -->'
+				echo '<td style="text-align:center; background-color:'"${smartStatusColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${smartStatus}"'</td> <!-- smartStatusColor, smartStatus -->'
+				echo '<td style="text-align:center; background-color:'"${tempColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${temp}"'</td> <!-- tempColor, temp -->'
+				echo '<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${onTime}"'</td> <!-- onTime -->'
+				echo '<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${startStop}"'</td> <!-- startStop -->'
+				echo '<td style="text-align:center; background-color:'"${mediaErrorsColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${mediaErrors}"'</td> <!-- mediaErrorsColor, mediaErrors -->'
+				echo '<td style="text-align:center; background-color:'"${errorsLogsColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${errorsLogs}"'</td> <!-- errorsLogsColor, errorsLogs -->'
+				echo '<td style="text-align:center; background-color:'"${critWarningColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${critWarning}"'</td> <!-- critWarningColor, critWarning -->'
+				echo '<td style="text-align:center; background-color:'"${wearLevelingColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${wearLeveling}"'</td> <!-- wearLevelingColor, wearLeveling -->'
+				echo '<td style="text-align:center; background-color:'"${totalBWColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${totalBW}"'</td> <!-- totalBWColor, totalBW -->'
+				echo '<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${bwPerDay}"'</td> <!-- bwPerDay -->'
+				echo '<td style="text-align:center; background-color:'"${testAgeColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">N/A</td> <!-- testAgeColor, testAge -->'
+				echo '<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;\">N/A</td> <!-- lastTestType -->'
+				echo '</tr>'
+			) >> "${logfile}"
 		fi
 	done
 
-    # End SMART summary table and summary section
-    (
-        echo "</table>"
-    ) >> "$logfile"
+	# End SMART summary table section
+	(
+		echo "</table>"
+	) >> "${logfile}"
+}
+
+
+if [ "${NVMeExist}" = "true" ]; then
+	NVMeSummary
 fi
 
 
