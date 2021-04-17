@@ -3,18 +3,21 @@
 
 #set -euxo pipefail
 
-###### ZPool, SMART, and UPS Status Report with FreeNAS Config Backup
+###### ZPool, SMART, and UPS Status Report with TrueNAS Config Backup
 ### Original Script By: joeschmuck
-### Modified By: bidelu0hm, melp, fohlsso2, onlinepcwizard, ninpucho
-### Last Edited By: isentropik
+### Modified By: bidelu0hm, melp, fohlsso2, onlinepcwizard, ninpucho, isentropik
+### Last Edited By: dak180
 
-### At a minimum, enter email address in user-definable parameter section. The default is set to 'root' as I assume that the root email was set in FreeNAS.
+### At a minimum, enter email address and set defaultFile to 0 in the config file.
 ### Feel free to edit other user parameters as needed.
 
-### Current Version: v1.6
-### https://github.com/isentropik/FreeNAS-Report
+### Current Version: v1.7
+### https://github.com/dak180/FreeNAS-Report
 
 ### Changelog:
+# v1.7
+#   - Refactor to reduce dependence on awk
+#   - Use a separate config file
 # v1.6.5
 #   - HTML boundary fix, proper message ids, support for dma mailer
 #   - Better support for NVMe and SSD
@@ -98,23 +101,24 @@ sectorsCrit=10          # Number of sectors per drive with errors before CRITICA
 testAgeWarn=5           # Maximum age (in days) of last SMART test before CRITICAL color will be used
 powerTimeFormat="ymdh"  # Format for power-on hours string, valid options are "ymdh", "ymd", "ym", or "y" (year month day hour)
 
-### FreeNAS config backup settings
+### TrueNAS config backup settings
 configBackup="false"     # Change to "false" to skip config backup (which renders next two options meaningless); "true" to keep config backups enabled
-emailBackup="false"     # Change to "true" to email FreeNAS config backup
-saveBackup="true"       # Change to "false" to delete FreeNAS config backup after mail is sent; "true" to keep it in dir below
-backupLocation="/root/backup"    # Directory in which to save FreeNAS config backups
+emailBackup="false"     # Change to "true" to email TrueNAS config backup
+saveBackup="true"       # Change to "false" to delete TrueNAS config backup after mail is sent; "true" to keep it in dir below
+backupLocation="/root/backup"    # Directory in which to save TrueNAS config backups
 
 ### UPS status summary settings
 reportUPS="false"        # Change to "false" to skip reporting the status of the UPS
 
 ### General script settings
-logfileLocation="/tmp"      # Directory in which to save FreeNAS log file. Can be set to /tmp.
+logfileLocation="/tmp"      # Directory in which to save TrueNAS log file. Can be set to /tmp.
 logfileName="logfilename"                  # Log file name
 saveLogfile="true"                         # Change to "false" to delete the log file after creation
 
 
 
 EOF
+	echo "Please edit the config file for your setup" >&2
 	exit 0
 }
 
@@ -187,7 +191,7 @@ messageid="$(dbus-uuidgen)"
 drives=$(for drive in $(sysctl -n kern.disks | sed -e 's:nvd:nvme:g'); do
     if smartctl -i "/dev/${drive}" | grep -q "SMART support is: Enabled"; then
         printf "%s " "${drive}"
-	elif smartctl -a "/dev/${drive}" | grep -q "SMART overall-health self-assessment test result"; then
+	elif echo "${drive}" | grep -q "nvme"; then
 		printf "%s " "${drive}"
     fi
 done | awk '{for (i=NF; i!=0 ; i--) print $i }')
@@ -212,7 +216,7 @@ fi
 ###### Email pre-formatting
 ### Set email headers
 (
-    echo "From: $host <${email}>"
+    echo "From: ${host} <root@$(hostname)>"
     echo "To: ${email}"
     echo "Subject: ${subject}"
     echo "MIME-Version: 1.0"
@@ -240,7 +244,7 @@ if [ "$configBackup" == "true" ]; then
             echo "--${boundary}"
             echo "Content-Transfer-Encoding: 8bit"
             echo -e "Content-Type: text/html; charset=utf-8\n"
-            echo "<b>Automatic backup of FreeNAS configuration has failed! The configuration file is corrupted!</b>"
+            echo "<b>Automatic backup of TrueNAS configuration has failed! The configuration file is corrupted!</b>"
             echo "<b>You should correct this problem as soon as possible!</b>"
             echo "<br>"
         ) >> "${logfile}"
