@@ -154,17 +154,34 @@ fi
 # Check if needed software is installed.
 PATH="${PATH}:/usr/local/sbin:/usr/local/bin"
 commands=(
-grep
+hostname
+date
+sysctl
 sed
+grep
+awk
+zpool
 cut
-sleep
 bc
 smartctl
 jq
-ipmitool
-awk
-tar
+glabel
+sendmail
 )
+if [ "${configBackup}" = "true" ]; then
+commands+=(
+tar
+sqlite3
+md5
+sha256
+base64
+)
+fi
+if [ "${reportUPS}" = "true" ]; then
+commands+=(
+upsc
+)
+fi
 for command in "${commands[@]}"; do
 	if ! type "${command}" &> /dev/null; then
 		echo "${command} is missing, please install" >&2
