@@ -200,8 +200,9 @@ fi
 
 ###### Auto-generated Parameters
 host=$(hostname -s)
-logfile="${logfileLocation}/$(date +%Y%m%d%H%M%S)_${logfileName}.tmp"
-subject="Status Report and Configuration Backup for ${host} - $(date "+%Y-%m-%d %H:%M")"
+runDate="$(date '+%s')"
+logfile="${logfileLocation}/$(date -r "${runDate}" '+%Y%m%d%H%M%S')_${logfileName}.tmp"
+subject="Status Report and Configuration Backup for ${host} - $(date -r "${runDate}" '+%Y-%m-%d %H:%M')"
 boundary="$(dbus-uuidgen)"
 messageid="$(dbus-uuidgen)"
 
@@ -239,7 +240,7 @@ fi
     echo "Subject: ${subject}"
     echo "MIME-Version: 1.0"
     echo 'Content-Type: multipart/mixed; boundary="'"${boundary}"'"'
-    echo "Date: $(date -R)"
+    echo "Date: $(date -Rr "${runDate}")"
     echo "Message-Id: <${messageid}@${host}>"
 ) > "${logfile}"
 
@@ -251,7 +252,7 @@ if [ "$configBackup" = "true" ]; then
     # Set up file names, etc for later
     tarfile="/tmp/config_backup.tar.gz"
     fnconfigdest_version="$(< /etc/version sed -e 's:)::' -e 's:(::' -e 's: :-:' | tr -d '\n')"
-    fnconfigdest_date="$(date '+%Y%m%d%H%M%S')"
+    fnconfigdest_date="$(date -r "${runDate}" '+%Y%m%d%H%M%S')"
     filename="${fnconfigdest_date}_${fnconfigdest_version}"
 
     ### Test config integrity
@@ -398,8 +399,8 @@ for pool in ${pools}; do
 
         # Convert time/datestamp format presented by zpool status, compare to current date, calculate scrub age
         scrubDate="$(echo "${statusOutput}" | grep "scan:" | awk '{print $15"-"$12"-"$13"_"$14}')"
-        scrubTS="$(date -j -f "%Y-%b-%e_%H:%M:%S" "${scrubDate}" "+%s")"
-        currentTS="$(date "+%s")"
+        scrubTS="$(date -j -f '%Y-%b-%e_%H:%M:%S' "${scrubDate}" '+%s')"
+        currentTS="${runDate}"
         scrubAge="$((((currentTS - scrubTS) + 43200) / 86400))"
         scrubTime="$(echo "${statusOutput}" | grep "scan" | awk '{print $6}')"
 
@@ -411,8 +412,8 @@ for pool in ${pools}; do
 
             # Convert time/datestamp format presented by zpool status, compare to current date, calculate scrub age
             scrubDate="$(echo "${statusOutput}" | grep "scan:" | awk '{print $16"-"$13"-"$14"_"$15}')"
-            scrubTS="$(date -j -f "%Y-%b-%e_%H:%M:%S" "${scrubDate}" "+%s")"
-            currentTS="$(date "+%s")"
+            scrubTS="$(date -j -f '%Y-%b-%e_%H:%M:%S' "${scrubDate}" '+%s')"
+            currentTS="${runDate}"
             scrubAge="$((((currentTS - scrubTS) + 43200) / 86400))"
             scrubTime="$(echo "${statusOutput}" | grep "scan:" | awk '{print $7}')"
 
