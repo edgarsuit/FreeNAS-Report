@@ -572,12 +572,12 @@ function NVMeSummary () {
 	) >> "${logfile}"
 
 
+	local drive
+	local altRow="false"
 	for drive in ${drives}; do
-		local altRow="false"
 		if echo "${drive}" | grep -q "nvme"; then
-			# For each drive detected, run "smartctl -Aij" and parse its output. This whole section is a single, long statement, so I'll make all comments here.
-			# Start by passing awk variables (all the -v's) used in other parts of the script. Other variables are calculated in-line with other smartctl calls.
-			# Next, pull values out of the original "smartctl -Aij" statement by searching for the text between the //'s.
+			# For each drive detected, run "smartctl -Aij" and parse its output.
+			# Start by parsing variables used in other parts of the script.
 			# After parsing the output, compute other values (last test's age, on time in YY-MM-DD-HH).
 			# After these computations, determine the row's background color (alternating as above, subbing in other colors from the palate as needed).
 			# Finally, print the HTML code for the current row of the table with all the gathered data.
@@ -587,18 +587,19 @@ function NVMeSummary () {
 
 			local model="$(echo "${nvmeSmarOut}" | jq -Mre '.model_name | values')"
 			local serial="$(echo "${nvmeSmarOut}" | jq -Mre '.serial_number | values')"
-			local capacity="[$(echo "${nvmeSmarOut}" | jq -Mre '(.user_capacity.bytes/1000215216) | values')GB]"
 			local temp="$(echo "${nvmeSmarOut}" | jq -Mre '.temperature.current | values')"
 			local onHours="$(echo "${nvmeSmarOut}" | jq -Mre '.power_on_time.hours | values')"
 			local startStop="$(echo "${nvmeSmarOut}" | jq -Mre '.power_cycle_count | values')"
+			local sectorSize="$(echo "${nvmeSmarOut}" | jq -Mre '.logical_block_size | values')"
+
 			local mediaErrors="$(echo "${nvmeSmarOut}" | jq -Mre '.nvme_smart_health_information_log.media_errors | values')"
 			local errorsLogs="$(echo "${nvmeSmarOut}" | jq -Mre '.nvme_smart_health_information_log.num_err_log_entries | values')"
 			local critWarning="$(echo "${nvmeSmarOut}" | jq -Mre '.nvme_smart_health_information_log.critical_warning | values')"
 			local wearLeveling="$(echo "${nvmeSmarOut}" | jq -Mre '.nvme_smart_health_information_log.available_spare | values')"
-			local sectorSize="$(echo "${nvmeSmarOut}" | jq -Mre '.logical_block_size | values')"
 			local totalLBA="$(echo "${nvmeSmarOut}" | jq -Mre '.nvme_smart_health_information_log.data_units_written | values')"
 
-			local smartStatus="$(smartctl -H "/dev/${drive}" | grep "SMART overall-health" | awk '{print $6}')"
+			local capacity="$(smartctl -i "/dev/${drive}" | grep '^Namespace 1 Size' | tr -s ' ' | cut -d ' ' -sf '5,6')"
+			local smartStatus="$(smartctl -H "/dev/${drive}" | grep "SMART overall-health" | cut -d ' ' -sf 6)"
 
 			# Get more useful times from hours
 			local testAge="$(bc <<< "(${onHours} - (${onHours} - 2) ) / 24")" # ${lastTestHours}
@@ -685,20 +686,24 @@ function NVMeSummary () {
 			fi
 
 			# Colorize & derive write stats
-			local totalBW="$(bc <<< "(${totalLBA} * ${sectorSize}) / (10^9)")"
-			if [ "${totalBW}" -ge "${totalBWCrit}" ]; then
+			local totalBW="$(bc <<< "scale=1; (${totalLBA} * ${sectorSize}) / (1024^4)" | sed -e 's:^\.:0.:')"
+			if (( $(bc -l <<< "${totalBW}" > "${totalBWCrit}") )); then
 				local totalBWColor="${critColor}"
-			elif [ "${totalBW}" -ge "${totalBWWarn}" ]; then
+			elif (( $(bc -l <<< "${totalBW}" > "${totalBWWarn}") )); then
 				local totalBWColor="${warnColor}"
 			else
 				local totalBWColor="${bgColor}"
 			fi
-			if [ "${totalBW}" = "0" ]; then
+			if [ "${totalBW}" = "0.0" ]; then
 				totalBW="N/A"
+			else
+				totalBW="${totalBW}TB"
+			fi
+			local bwPerDay="$(bc <<< "scale=1; (((${totalLBA} * ${sectorSize}) / (1024^4)) * 1024) / (${onHours} / 24)" | sed -e 's:^\.:0.:')"
+			if [ "${bwPerDay}" = "0.0" ]; then
 				bwPerDay="N/A"
 			else
-				bwPerDay="$(bc <<< "(${totalBW} * 1024) / (${onHours} / 24)")GB"
-				totalBW="${totalBW}TB"
+				bwPerDay="${bwPerDay}GB"
 			fi
 
 			# Colorize test age
