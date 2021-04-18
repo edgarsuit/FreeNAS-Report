@@ -162,6 +162,7 @@ grep
 awk
 zpool
 cut
+tr
 bc
 smartctl
 jq
@@ -214,7 +215,7 @@ drives=$(for drive in $(sysctl -n kern.disks | sed -e 's:nvd:nvme:g'); do
 done | awk '{for (i=NF; i!=0 ; i--) print $i }')
 
 # Toggles the 'ssdExist' flag to true if SSDs are detected in order to add the summary table
-if [ "${includeSSD}" == "true" ]; then
+if [ "${includeSSD}" = "true" ]; then
     for drive in ${drives}; do
         if smartctl -i "/dev/${drive}" | grep -q "Solid State Device"; then
             ssdExist="true"
@@ -237,7 +238,7 @@ fi
     echo "To: ${email}"
     echo "Subject: ${subject}"
     echo "MIME-Version: 1.0"
-    echo "Content-Type: multipart/mixed; boundary=\"${boundary}\""
+    echo 'Content-Type: multipart/mixed; boundary="'"${boundary}"'"'
     echo "Date: $(date -R)"
     echo "Message-Id: <${messageid}@${host}>"
 ) > "${logfile}"
@@ -245,16 +246,16 @@ fi
 
 
 ###### Config backup (if enabled)
-if [ "$configBackup" == "true" ]; then
+if [ "$configBackup" = "true" ]; then
 
     # Set up file names, etc for later
     tarfile="/tmp/config_backup.tar.gz"
-    fnconfigdest_version=$(< /etc/version sed -e 's/)//;s/(//;s/ /-/' | tr -d '\n')
-    fnconfigdest_date=$(date +%Y%m%d%H%M%S)
-    filename="${fnconfigdest_date}"_"${fnconfigdest_version}"
+    fnconfigdest_version="$(< /etc/version sed -e 's:)::' -e 's:(::' -e 's: :-:' | tr -d '\n')"
+    fnconfigdest_date="$(date '+%Y%m%d%H%M%S')"
+    filename="${fnconfigdest_date}_${fnconfigdest_version}"
 
     ### Test config integrity
-    if ! [ "$(sqlite3 /data/freenas-v1.db "pragma integrity_check;")" == "ok" ]; then
+    if [ ! "$(sqlite3 "/data/freenas-v1.db" "pragma integrity_check;")" = "ok" ]; then
 
         # Config integrity check failed, set MIME content type to html and print warning
         (
@@ -267,22 +268,22 @@ if [ "$configBackup" == "true" ]; then
         ) >> "${logfile}"
     else
         # Config integrity check passed; copy config db, generate checksums, make .tar.gz archive
-        cp /data/freenas-v1.db "/tmp/${filename}.db"
+        sqlite3 "/data/freenas-v1.db" ".backup main /tmp/${filename}.db"
         md5 "/tmp/${filename}.db" > /tmp/config_backup.md5
         sha256 "/tmp/${filename}.db" > /tmp/config_backup.sha256
         (
             cd "/tmp/" || exit;
-            tar -czf "${tarfile}" "./${filename}.db" ./config_backup.md5 ./config_backup.sha256;
+            tar -czf "${tarfile}" "./${filename}.db" "./config_backup.md5" "./config_backup.sha256"
         )
         (
-        if [ "$emailBackup" == "true" ]; then
-            # Write MIME section header for file attachment (encoded with base64)
-            echo "--${boundary}"
-            echo -e "Content-Type: application/tar+gzip\n"
-            echo "Content-Transfer-Encoding: base64"
-            echo "Content-Disposition: attachment; filename=${filename}.tar.gz"
-            base64 "${tarfile}"
-    fi
+			if [ "${emailBackup}" = "true" ]; then
+				# Write MIME section header for file attachment (encoded with base64)
+				echo "--${boundary}"
+				echo -e "Content-Type: application/tar+gzip\n"
+				echo "Content-Transfer-Encoding: base64"
+				echo "Content-Disposition: attachment; filename=${filename}.tar.gz"
+				base64 "${tarfile}"
+			fi
 
             # Write MIME section header for html content to come below
             echo "--${boundary}"
@@ -291,16 +292,16 @@ if [ "$configBackup" == "true" ]; then
         ) >> "${logfile}"
 
         # If logfile saving is enabled, copy .tar.gz file to specified location before it (and everything else) is removed below
-        if [ "${saveBackup}" == "true" ]; then
+        if [ "${saveBackup}" = "true" ]; then
             cp "${tarfile}" "${backupLocation}/${filename}.tar.gz"
         fi
         rm "/tmp/${filename}.db"
-        rm /tmp/config_backup.md5
-        rm /tmp/config_backup.sha256
+        rm "/tmp/config_backup.md5"
+        rm "/tmp/config_backup.sha256"
         rm "${tarfile}"
     fi
 else
-    # Config backup enabled; set up for html-type content
+    # Config backup disabled; set up for html-type content
     (
         echo "--${boundary}"
         echo "Content-Transfer-Encoding: 8bit"
@@ -310,76 +311,77 @@ fi
 
 
 ###### Report Summary Section (html tables)
+
 ### zpool status summary table
 (
     # Write HTML table headers to log file; HTML in an email requires 100% in-line styling (no CSS or <style> section), hence the massive tags
-    echo "<br><br>"
-    echo "<table style=\"border: 1px solid black; border-collapse: collapse;\">"
-    echo "<tr><th colspan=\"14\" style=\"text-align:center; font-size:20px; height:40px; font-family:courier;\">ZPool Status Report Summary</th></tr>"
-    echo "<tr>"
-    echo "  <th style=\"text-align:center; width:130px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;\">Pool<br>Name</th>"
-    echo "  <th style=\"text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;\">Status</th>"
-    echo "  <th style=\"text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;\">Size</th>"
-    echo "  <th style=\"text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;\">Allocated</th>"
-    echo "  <th style=\"text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;\">Free</th>"
-    echo "  <th style=\"text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;\">Frag %</th>"
-    echo "  <th style=\"text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;\">Used %</th>"
-    echo "  <th style=\"text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;\">Read<br>Errors</th>"
-    echo "  <th style=\"text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;\">Write<br>Errors</th>"
-    echo "  <th style=\"text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;\">Cksum<br>Errors</th>"
-    echo "  <th style=\"text-align:center; width:100px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;\">Scrub<br>Repaired<br>Bytes</th>"
-    echo "  <th style=\"text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;\">Scrub<br>Errors</th>"
-    echo "  <th style=\"text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;\">Last<br>Scrub<br>Age (days)</th>"
-    echo "  <th style=\"text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;\">Last<br>Scrub<br>Duration</th>"
-    echo "</tr>"
-) >> "$logfile"
+    echo '<br><br>'
+    echo '<table style="border: 1px solid black; border-collapse: collapse;">'
+    echo '<tr><th colspan="14" style="text-align:center; font-size:20px; height:40px; font-family:courier;">ZPool Status Report Summary</th></tr>'
+    echo '<tr>'
+    echo '<th style="text-align:center; width:130px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Pool<br>Name</th>'
+    echo '<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Status</th>'
+    echo '<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Size</th>'
+    echo '<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Allocated</th>'
+    echo '<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Free</th>'
+    echo '<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Frag %</th>'
+    echo '<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Used %</th>'
+    echo '<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Read<br>Errors</th>'
+    echo '<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Write<br>Errors</th>'
+    echo '<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Cksum<br>Errors</th>'
+    echo '<th style="text-align:center; width:100px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Scrub<br>Repaired<br>Bytes</th>'
+    echo '<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Scrub<br>Errors</th>'
+    echo '<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Last<br>Scrub<br>Age (days)</th>'
+    echo '<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Last<br>Scrub<br>Duration</th>'
+    echo '</tr>'
+) >> "${logfile}"
 
-poolNum=0
-pools=$(zpool list -H -o name)
-for pool in $pools; do
+poolNum="0"
+pools="$(zpool list -H -o name)"
+for pool in ${pools}; do
 
     # zpool health summary
-    status="$(zpool list -H -o health "$pool")"
+    status="$(zpool list -H -o health "${pool}")"
 
     # zpool fragment summary
-    frag="$(zpool list -H -p -o frag "$pool" | tr -d %% | awk '{print $0 + 0}')"
-    size="$(zpool list -H -o size "$pool")"
-    allocated="$(zpool list -H -o allocated "$pool")"
-    free="$(zpool list -H -o free "$pool")"
+    frag="$(zpool list -H -p -o frag "${pool}" | tr -d %% | awk '{print $0 + 0}')"
+    size="$(zpool list -H -o size "${pool}")"
+    allocated="$(zpool list -H -o allocated "${pool}")"
+    free="$(zpool list -H -o free "${pool}")"
 
     # Total all read, write, and checksum errors per pool
-    errors="$(zpool status "$pool" | grep -E "(ONLINE|DEGRADED|FAULTED|UNAVAIL|REMOVED)[ \\t]+[0-9]+")"
-    readErrors=0
-    for err in $(echo "$errors" | awk '{print $3}'); do
-        if echo "$err" | grep -E -q "[^0-9]+"; then
-            readErrors=1000
+    errors="$(zpool status "${pool}" | grep -E "(ONLINE|DEGRADED|FAULTED|UNAVAIL|REMOVED)[ \\t]+[0-9]+")"
+    readErrors="0"
+    for err in $(echo "${errors}" | awk '{print $3}'); do
+        if echo "${err}" | grep -E -q "[^0-9]+"; then
+            readErrors="1000"
             break
         fi
-        readErrors=$((readErrors + err))
+        readErrors="$((readErrors + err))"
     done
     writeErrors=0
-    for err in $(echo "$errors" | awk '{print $4}'); do
-        if echo "$err" | grep -E -q "[^0-9]+"; then
-            writeErrors=1000
+    for err in $(echo "${err}ors" | awk '{print $4}'); do
+        if echo "${err}" | grep -E -q "[^0-9]+"; then
+            writeErrors="1000"
             break
         fi
-        writeErrors=$((writeErrors + err))
+        writeErrors="$((writeErrors + err))"
     done
     cksumErrors=0
-    for err in $(echo "$errors" | awk '{print $5}'); do
-        if echo "$err" | grep -E -q "[^0-9]+"; then
-            cksumErrors=1000
+    for err in $(echo "${err}ors" | awk '{print $5}'); do
+        if echo "${err}" | grep -E -q "[^0-9]+"; then
+            cksumErrors="1000"
             break
         fi
-        cksumErrors=$((cksumErrors + err))
+        cksumErrors="$((cksumErrors + err))"
     done
     # Not sure why this changes values larger than 1000 to ">1K", but I guess it works, so I'm leaving it
-    if [ "$readErrors" -gt 999 ]; then readErrors=">1K"; fi
-    if [ "$writeErrors" -gt 999 ]; then writeErrors=">1K"; fi
-    if [ "$cksumErrors" -gt 999 ]; then cksumErrors=">1K"; fi
+    if [ "${readErrors}" -gt 999 ]; then readErrors=">1K"; fi
+    if [ "${writeErrors}" -gt 999 ]; then writeErrors=">1K"; fi
+    if [ "${cksumErrors}" -gt 999 ]; then cksumErrors=">1K"; fi
 
     # Get used capacity percentage of the zpool
-    used="$(zpool list -H -p -o capacity "$pool")"
+    used="$(zpool list -H -p -o capacity "${pool}")"
 
     # Gather info from most recent scrub; values set to "N/A" initially and overwritten when (and if) it gathers scrub info
     scrubRepBytes="N/A"
@@ -388,93 +390,135 @@ for pool in $pools; do
     scrubTime="N/A"
     resilver=""
 
-    statusOutput="$(zpool status "$pool")"
+    statusOutput="$(zpool status "${pool}")"
     # normal status i.e. scrub
-    if [ "$(echo "$statusOutput" | grep "scan:" | awk '{print $2" "$3}')" = "scrub repaired" ]; then
-        scrubRepBytes="$(echo "$statusOutput" | grep "scan:" | awk '{gsub(/B/,"",$4); print $4}')"
-        scrubErrors="$(echo "$statusOutput" | grep "scan:" | awk '{print $8}')"
+    if [ "$(echo "${statusOutput}" | grep "scan:" | awk '{print $2" "$3}')" = "scrub repaired" ]; then
+        scrubRepBytes="$(echo "${statusOutput}" | grep "scan:" | awk '{gsub(/B/,"",$4); print $4}')"
+        scrubErrors="$(echo "${statusOutput}" | grep "scan:" | awk '{print $8}')"
 
         # Convert time/datestamp format presented by zpool status, compare to current date, calculate scrub age
-        scrubDate="$(echo "$statusOutput" | grep "scan:" | awk '{print $15"-"$12"-"$13"_"$14}')"
-        scrubTS="$(date -j -f "%Y-%b-%e_%H:%M:%S" "$scrubDate" "+%s")"
+        scrubDate="$(echo "${statusOutput}" | grep "scan:" | awk '{print $15"-"$12"-"$13"_"$14}')"
+        scrubTS="$(date -j -f "%Y-%b-%e_%H:%M:%S" "${scrubDate}" "+%s")"
         currentTS="$(date "+%s")"
-        scrubAge=$((((currentTS - scrubTS) + 43200) / 86400))
-        scrubTime="$(echo "$statusOutput" | grep "scan" | awk '{print $6}')"
+        scrubAge="$((((currentTS - scrubTS) + 43200) / 86400))"
+        scrubTime="$(echo "${statusOutput}" | grep "scan" | awk '{print $6}')"
 
     # if status is resilvered
-    elif [ "$(echo "$statusOutput" | grep "scan:" | awk '{print $2}')" = "resilvered" ]; then
+    elif [ "$(echo "${statusOutput}" | grep "scan:" | awk '{print $2}')" = "resilvered" ]; then
             resilver="<BR>Resilvered"
-            scrubRepBytes="$(echo "$statusOutput" | grep "scan:" | awk '{print $3}')"
-            scrubErrors="$(echo "$statusOutput" | grep "scan:" | awk '{print $9}')"
+            scrubRepBytes="$(echo "${statusOutput}" | grep "scan:" | awk '{print $3}')"
+            scrubErrors="$(echo "${statusOutput}" | grep "scan:" | awk '{print $9}')"
 
             # Convert time/datestamp format presented by zpool status, compare to current date, calculate scrub age
-            scrubDate="$(echo "$statusOutput" | grep "scan:" | awk '{print $16"-"$13"-"$14"_"$15}')"
-            scrubTS="$(date -j -f "%Y-%b-%e_%H:%M:%S" "$scrubDate" "+%s")"
+            scrubDate="$(echo "${statusOutput}" | grep "scan:" | awk '{print $16"-"$13"-"$14"_"$15}')"
+            scrubTS="$(date -j -f "%Y-%b-%e_%H:%M:%S" "${scrubDate}" "+%s")"
             currentTS="$(date "+%s")"
-            scrubAge=$((((currentTS - scrubTS) + 43200) / 86400))
-            scrubTime="$(echo "$statusOutput" | grep "scan:" | awk '{print $7}')"
+            scrubAge="$((((currentTS - scrubTS) + 43200) / 86400))"
+            scrubTime="$(echo "${statusOutput}" | grep "scan:" | awk '{print $7}')"
 
     # Check if resilver is in progress
-    elif [ "$(echo "$statusOutput"| grep "scan:" | awk '{print $2}')" = "resilver" ]; then
+    elif [ "$(echo "${statusOutput}"| grep "scan:" | awk '{print $2}')" = "resilver" ]; then
         scrubRepBytes="Resilver In Progress"
-        scrubAge="$(echo "$statusOutput" | grep "resilvered," | awk '{print $3" done"}')"
-        if [ "$(echo "$statusOutput" | grep "resilvered," | awk '{print $5}')" = "0" ]; then
-            scrubTime="$(echo "$statusOutput" | grep "resilvered," | awk '{print $7"<br>to go"}')"
+        scrubAge="$(echo "${statusOutput}" | grep "resilvered," | awk '{print $3" done"}')"
+        if [ "$(echo "${statusOutput}" | grep "resilvered," | awk '{print $5}')" = "0" ]; then
+            scrubTime="$(echo "${statusOutput}" | grep "resilvered," | awk '{print $7"<br>to go"}')"
         else
-            scrubTime="$(echo "$statusOutput" | grep "resilvered," | awk '{print $5" "$6" "$7"<br>to go"}')"
+            scrubTime="$(echo "${statusOutput}" | grep "resilvered," | awk '{print $5" "$6" "$7"<br>to go"}')"
         fi
 
     # Check if scrub is in progress
-    elif [ "$(echo "$statusOutput"| grep "scan:" | awk '{print $4}')" = "progress" ]; then
+    elif [ "$(echo "${statusOutput}"| grep "scan:" | awk '{print $4}')" = "progress" ]; then
         scrubRepBytes="Scrub In Progress"
-        scrubErrors="$(echo "$statusOutput" | grep "repaired," | awk '{print $1" repaired"}')"
-        scrubAge="$(echo "$statusOutput" | grep "repaired," | awk '{print $3" done"}')"
-        if [ "$(echo "$statusOutput" | grep "repaired," | awk '{print $5}')" = "0" ]; then
-            scrubTime="$(echo "$statusOutput" | grep "repaired," | awk '{print $7"<br>to go"}')"
+        scrubErrors="$(echo "${statusOutput}" | grep "repaired," | awk '{print $1" repaired"}')"
+        scrubAge="$(echo "${statusOutput}" | grep "repaired," | awk '{print $3" done"}')"
+        if [ "$(echo "${statusOutput}" | grep "repaired," | awk '{print $5}')" = "0" ]; then
+            scrubTime="$(echo "${statusOutput}" | grep "repaired," | awk '{print $7"<br>to go"}')"
         else
-            scrubTime="$(echo "$statusOutput" | grep "repaired," | awk '{print $5" "$6" "$7"<br>to go"}')"
+            scrubTime="$(echo "${statusOutput}" | grep "repaired," | awk '{print $5" "$6" "$7"<br>to go"}')"
         fi
     fi
 
     # Set row's background color; alternates between white and $altColor (light gray)
-    if [ $((poolNum % 2)) == 1 ]; then bgColor="#ffffff"; else bgColor="$altColor"; fi
-    poolNum=$((poolNum + 1))
+    if [ "$((poolNum % 2))" = "1" ]; then
+		bgColor="#ffffff"
+    else
+		bgColor="$altColor"
+    fi
+    poolNum="$((poolNum + 1))"
 
     # Set up conditions for warning or critical colors to be used in place of standard background colors
-    if [ "$status" != "ONLINE" ]; then statusColor="$warnColor"; else statusColor="$bgColor"; fi
-    status+="$resilver"
-    if [ "$readErrors" != "0" ]; then readErrorsColor="$warnColor"; else readErrorsColor="$bgColor"; fi
-    if [ "$writeErrors" != "0" ]; then writeErrorsColor="$warnColor"; else writeErrorsColor="$bgColor"; fi
-    if [ "$cksumErrors" != "0" ]; then cksumErrorsColor="$warnColor"; else cksumErrorsColor="$bgColor"; fi
-    if [ "$used" -gt "$usedWarn" ]; then usedColor="$warnColor"; else usedColor="$bgColor"; fi
-    if [ "$scrubRepBytes" != "N/A" ] && [ "$scrubRepBytes" != "0" ] && [ "$scrubRepBytes" != "0B" ]; then
-        scrubRepBytesColor="$warnColor"; else scrubRepBytesColor="$bgColor"; fi
-    if [ "$scrubErrors" != "N/A" ] && [ "$scrubErrors" != "0" ]; then scrubErrorsColor="$warnColor"; else scrubErrorsColor="$bgColor"; fi
-    if [ "$(echo "$scrubAge" | awk '{print int($1)}')" -gt "$scrubAgeWarn" ]; then scrubAgeColor="$warnColor"; else scrubAgeColor="$bgColor"; fi
+    if [ ! "${status}" = "ONLINE" ]; then
+		statusColor="${warnColor}"
+    else
+		statusColor="${bgColor}"
+    fi
+    status+="${resilver}"
+
+    if [ ! "${readErrors}" = "0" ]; then
+		readErrorsColor="${warnColor}"
+    else
+		readErrorsColor="${bgColor}"
+    fi
+
+    if [ ! "${writeErrors}" = "0" ]; then
+		writeErrorsColor="${warnColor}"
+    else
+		writeErrorsColor="${bgColor}"
+    fi
+
+    if [ ! "${cksumErrors}" = "0" ]; then
+		cksumErrorsColor="${warnColor}"
+    else
+		cksumErrorsColor="${bgColor}"
+    fi
+
+    if [ "${used}" -gt "${usedWarn}" ]; then
+		usedColor="${warnColor}"
+    else
+		usedColor="${bgColor}"
+    fi
+
+    if [ ! "${scrubRepBytes}" = "N/A" ] && [ ! "${scrubRepBytes}" = "0" ] && [ ! "${scrubRepBytes}" = "0B" ]; then
+        scrubRepBytesColor="${warnColor}"
+	else
+		scrubRepBytesColor="${bgColor}"
+	fi
+
+    if [ ! "${scrubErrors}" = "N/A" ] && [ ! "${scrubErrors}" = "0" ]; then
+		scrubErrorsColor="${warnColor}"
+    else
+		scrubErrorsColor="${bgColor}"
+    fi
+
+    if [ "$(echo "$scrubAge" | awk '{print int($1)}')" -gt "${scrubAgeWarn}" ]; then
+		scrubAgeColor="${warnColor}"
+    else
+		scrubAgeColor="${bgColor}"
+    fi
+
     (
         # Use the information gathered above to write the date to the current table row
-        printf "<tr style=\"background-color:%s;\">
-            <td style=\"text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;\">%s</td>
-            <td style=\"text-align:center; background-color:%s; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;\">%s</td>
-            <td style=\"text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;\">%s</td>
-            <td style=\"text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;\">%s</td>
-            <td style=\"text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;\">%s</td>
-            <td style=\"text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;\">%s%%</td>
-            <td style=\"text-align:center; background-color:%s; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;\">%s%%</td>
-            <td style=\"text-align:center; background-color:%s; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;\">%s</td>
-            <td style=\"text-align:center; background-color:%s; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;\">%s</td>
-            <td style=\"text-align:center; background-color:%s; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;\">%s</td>
-            <td style=\"text-align:center; background-color:%s; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;\">%s</td>
-            <td style=\"text-align:center; background-color:%s; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;\">%s</td>
-            <td style=\"text-align:center; background-color:%s; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;\">%s</td>
-            <td style=\"text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;\">%s</td>
-        </tr>\\n" "$bgColor" "$pool" "$statusColor" "$status" "$size" "$allocated" "$free" "$frag" "$usedColor" "$used" "$readErrorsColor" "$readErrors" "$writeErrorsColor" "$writeErrors" "$cksumErrorsColor" \
-        "$cksumErrors" "$scrubRepBytesColor" "$scrubRepBytes" "$scrubErrorsColor" "$scrubErrors" "$scrubAgeColor" "$scrubAge" "$scrubTime"
-    ) >> "$logfile"
+		echo '<tr style="background-color:'"${bgColor}"'">'
+		echo '<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${pool}"'</td>'
+		echo '<td style="text-align:center; background-color:'"${statusColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${status}"'</td>'
+		echo '<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${size}"'</td>'
+		echo '<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${allocated}"'</td>'
+		echo '<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${free}"'</td>'
+		echo '<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${frag}"'%</td>'
+		echo '<td style="text-align:center; background-color:'"${usedColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${used}"'%</td>'
+		echo '<td style="text-align:center; background-color:'"${readErrorsColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${readErrors}"'</td>'
+		echo '<td style="text-align:center; background-color:'"${writeErrorsColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${writeErrors}"'</td>'
+		echo '<td style="text-align:center; background-color:'"${cksumErrorsColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${cksumErrors}"'</td>'
+		echo '<td style="text-align:center; background-color:'"${scrubRepBytesColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${scrubRepBytes}"'</td>'
+		echo '<td style="text-align:center; background-color:'"${scrubErrorsColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${scrubErrors}"'</td>'
+		echo '<td style="text-align:center; background-color:'"${scrubAgeColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${scrubAge}"'</td>'
+		echo '<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${scrubTime}"'</td>'
+		echo '</tr>'
+    ) >> "${logfile}"
 done
 
 # End of zpool status table
-echo "</table>" >> "$logfile"
+echo '</table>' >> "${logfile}"
 
 
 ### SMART status summary tables
@@ -704,30 +748,30 @@ fi
 if [ "${ssdExist}" = "true" ]; then
     (
         # Write HTML table headers to log file
-        echo "<br><br>"
-        echo "<table style=\"border: 1px solid black; border-collapse: collapse;\">"
-        echo "<tr><th colspan=\"18\" style=\"text-align:center; font-size:20px; height:40px; font-family:courier;\">SSD SMART Status Report Summary</th></tr>"
-        echo "<tr>"
-        echo "  <th style=\"text-align:center; width:100px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;\">Device</th>"
-        echo "  <th style=\"text-align:center; width:130px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;\">Model</th>"
-        echo "  <th style=\"text-align:center; width:130px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;\">Serial<br>Number</th>"
-        echo "  <th style=\"text-align:center; width:100px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;\">Capacity</th>"
-        echo "  <th style=\"text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;\">SMART<br>Status</th>"
-        echo "  <th style=\"text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;\">Temp</th>"
-        echo "  <th style=\"text-align:center; width:120px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;\">Power-On<br>Time<br>($powerTimeFormat)</th>"
-        echo "  <th style=\"text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;\">Power<br>Cycle<br>Count</th>"
-        echo "  <th style=\"text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;\">Realloc<br>Sectors</th>"
-        echo "  <th style=\"text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;\">Program<br>Fail<br>Count</th>"
-        echo "  <th style=\"text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;\">Erase<br>Fail<br>Count</th>"
-        echo "  <th style=\"text-align:center; width:120px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;\">Offline<br>Uncorrectable<br>Sectors</th>"
-        echo "  <th style=\"text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;\">CRC<br>Errors</th>"
-        echo "  <th style=\"text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;\">Wear<br>Leveling<br>Count</th>"
-        echo "  <th style=\"text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;\">Total<br>Bytes<br>Written</th>"
-        echo "  <th style=\"text-align:center; width:100px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;\">Bytes Written<br>(per Day)</th>"
-        echo "  <th style=\"text-align:center; width:100px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;\">Last Test<br>Age (days)</th>"
-        echo "  <th style=\"text-align:center; width:100px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;\">Last Test<br>Type</th></tr>"
-        echo "</tr>"
-    ) >> "$logfile"
+        echo '<br><br>'
+        echo '<table style="border: 1px solid black; border-collapse: collapse;">'
+        echo '<tr><th colspan="18" style="text-align:center; font-size:20px; height:40px; font-family:courier;">SSD SMART Status Report Summary</th></tr>'
+        echo '<tr>'
+        echo '<th style="text-align:center; width:100px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Device</th>'
+        echo '<th style="text-align:center; width:130px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Model</th>'
+        echo '<th style="text-align:center; width:130px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Serial<br>Number</th>'
+        echo '<th style="text-align:center; width:100px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Capacity</th>'
+        echo '<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">SMART<br>Status</th>'
+        echo '<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Temp</th>'
+        echo '<th style="text-align:center; width:120px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Power-On<br>Time<br>('"${powerTimeFormat}"')</th>'
+        echo '<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Power<br>Cycle<br>Count</th>'
+        echo '<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Realloc<br>Sectors</th>'
+        echo '<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Program<br>Fail<br>Count</th>'
+        echo '<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Erase<br>Fail<br>Count</th>'
+        echo '<th style="text-align:center; width:120px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Offline<br>Uncorrectable<br>Sectors</th>'
+        echo '<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">CRC<br>Errors</th>'
+        echo '<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Wear<br>Leveling<br>Count</th>'
+        echo '<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Total<br>Bytes<br>Written</th>'
+        echo '<th style="text-align:center; width:100px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Bytes Written<br>(per Day)</th>'
+        echo '<th style="text-align:center; width:100px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Last Test<br>Age (days)</th>'
+        echo '<th style="text-align:center; width:100px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Last Test<br>Type</th></tr>'
+        echo '</tr>'
+    ) >> "${logfile}"
 
     for drive in ${drives}; do
         if smartctl -i "/dev/${drive}" | grep -q "Solid State Device"; then
@@ -814,14 +858,14 @@ if [ "${ssdExist}" = "true" ]; then
                     progFailColor, progFail, eraseFailColor, eraseFail, offlineUncColor, offlineUnc, crcErrorsColor, crcErrors, wearLevelingColor, wearLeveling, totalBWColor, totalBW, \
                     bwPerDay, testAgeColor, testAge, lastTestType;
                 }'
-            ) >> "$logfile"
+            ) >> "${logfile}"
         fi
     done
 
     # End SMART summary table and summary section
     (
-        echo "</table>"
-    ) >> "$logfile"
+        echo '</table>'
+    ) >> "${logfile}"
 fi
 
 
@@ -829,30 +873,30 @@ fi
 ###### HDD SMART status summary table
 (
     # Write HTML table headers to log file
-    echo "<br><br>"
-    echo "<table style=\"border: 1px solid black; border-collapse: collapse;\">"
-    echo "<tr><th colspan=\"18\" style=\"text-align:center; font-size:20px; height:40px; font-family:courier;\">HDD SMART Status Report Summary</th></tr>"
-    echo "<tr>"
-    echo "  <th style=\"text-align:center; width:100px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;\">Device</th>"
-    echo "  <th style=\"text-align:center; width:130px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;\">Model</th>"
-    echo "  <th style=\"text-align:center; width:130px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;\">Serial<br>Number</th>"
-    echo "  <th style=\"text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;\">RPM</th>"
-    echo "  <th style=\"text-align:center; width:100px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;\">Capacity</th>"
-    echo "  <th style=\"text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;\">SMART<br>Status</th>"
-    echo "  <th style=\"text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;\">Temp</th>"
-    echo "  <th style=\"text-align:center; width:120px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;\">Power-On<br>Time<br>($powerTimeFormat)</th>"
-    echo "  <th style=\"text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;\">Start<br>Stop<br>Count</th>"
-    echo "  <th style=\"text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;\">Spin<br>Retry<br>Count</th>"
-    echo "  <th style=\"text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;\">Realloc<br>Sectors</th>"
-    echo "  <th style=\"text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;\">Realloc<br>Events</th>"
-    echo "  <th style=\"text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;\">Current<br>Pending<br>Sectors</th>"
-    echo "  <th style=\"text-align:center; width:120px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;\">Offline<br>Uncorrectable<br>Sectors</th>"
-    echo "  <th style=\"text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;\">CRC<br>Errors</th>"
-    echo "  <th style=\"text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;\">Seek<br>Error<br>Health</th>"
-    echo "  <th style=\"text-align:center; width:100px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;\">Last Test<br>Age (days)</th>"
-    echo "  <th style=\"text-align:center; width:100px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;\">Last Test<br>Type</th></tr>"
-    echo "</tr>"
-) >> "$logfile"
+    echo '<br><br>'
+    echo '<table style="border: 1px solid black; border-collapse: collapse;">'
+    echo '<tr><th colspan="18" style="text-align:center; font-size:20px; height:40px; font-family:courier;">HDD SMART Status Report Summary</th></tr>'
+    echo '<tr>'
+    echo '<th style="text-align:center; width:100px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Device</th>'
+    echo '<th style="text-align:center; width:130px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Model</th>'
+    echo '<th style="text-align:center; width:130px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Serial<br>Number</th>'
+    echo '<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">RPM</th>'
+    echo '<th style="text-align:center; width:100px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Capacity</th>'
+    echo '<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">SMART<br>Status</th>'
+    echo '<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Temp</th>'
+    echo '<th style="text-align:center; width:120px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Power-On<br>Time<br>('"${powerTimeFormat}"')</th>'
+    echo '<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Start<br>Stop<br>Count</th>'
+    echo '<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Spin<br>Retry<br>Count</th>'
+    echo '<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Realloc<br>Sectors</th>'
+    echo '<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Realloc<br>Events</th>'
+    echo '<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Current<br>Pending<br>Sectors</th>'
+    echo '<th style="text-align:center; width:120px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Offline<br>Uncorrectable<br>Sectors</th>'
+    echo '<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">CRC<br>Errors</th>'
+    echo '<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Seek<br>Error<br>Health</th>'
+    echo '<th style="text-align:center; width:100px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Last Test<br>Age (days)</th>'
+    echo '<th style="text-align:center; width:100px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Last Test<br>Type</th></tr>'
+    echo '</tr>'
+) >> "${logfile}"
 
 for drive in ${drives}; do
     if smartctl -i "/dev/${drive}" | grep -q "SMART support is: Enabled"; then
@@ -929,76 +973,78 @@ for drive in ${drives}; do
                 reAllocEventColor, reAllocEvent, pendingColor, pending, offlineUncColor, offlineUnc, crcErrorsColor, crcErrors, seekErrorHealthColor, seekErrorHealth, \
                 testAgeColor, testAge, lastTestType;
             }'
-        ) >> "$logfile"
+        ) >> "${logfile}"
         fi
     fi
 done
 
 # End SMART summary table and summary section
 (
-    echo "</table>"
-    echo "<br><br>"
-) >> "$logfile"
+    echo '</table>'
+    echo '<br><br>'
+) >> "${logfile}"
 
 
 
 ###### Detailed Report Section (monospace text)
-echo "<pre style=\"font-size:14px\">" >> "$logfile"
+echo '<pre style="font-size:14px">' >> "${logfile}"
 
 
 ### UPS status report
-if [ "$reportUPS" == "true" ]; then
+if [ "${reportUPS}" = "true" ]; then
 
     # Set to a value greater than zero to include all available UPSC
     # variables in the report:
-    senddetail=0
+    senddetail="0"
 
     # Get a list of all ups devices installed on the system:
-    upslist=$(upsc -l "${host}")
+    upslist="$(upsc -l "${host}")"
 
     (
-    echo "<pre style=\"font-size:14px\">"
-    echo "<b>########## UPS status report ##########</b>"
-        for ups in $upslist; do
-        ups_type=$(upsc "${ups}" device.type 2> /dev/null | tr '[:lower:]' '[:upper:]')
-        ups_mfr=$(upsc "${ups}" ups.mfr 2> /dev/null)
-        ups_model=$(upsc "${ups}" ups.model 2> /dev/null)
-        ups_serial=$(upsc "${ups}" ups.serial 2> /dev/null)
-        ups_status=$(upsc "${ups}" ups.status 2> /dev/null)
-        ups_load=$(upsc "${ups}" ups.load 2> /dev/null)
-        ups_realpower=$(upsc "${ups}" ups.realpower 2> /dev/null)
-        ups_realpowernominal=$(upsc "${ups}" ups.realpower.nominal 2> /dev/null)
-        ups_batterycharge=$(upsc "${ups}" battery.charge 2> /dev/null)
-        ups_batteryruntime=$(upsc "${ups}" battery.runtime 2> /dev/null)
-        ups_batteryvoltage=$(upsc "${ups}" battery.voltage 2> /dev/null)
-        ups_inputvoltage=$(upsc "${ups}" input.voltage 2> /dev/null)
-        ups_outputvoltage=$(upsc "${ups}" output.voltage 2> /dev/null)
-        printf "=== %s %s, model %s, serial number %s\n\n" "${ups_mfr}" "${ups_type}" "${ups_model}" "${ups_serial} ==="
-        echo "Name: ${ups}"
-        echo "Status: ${ups_status}"
-        echo "Output Load: ${ups_load}%"
-        if [ ! -z "${ups_realpower}" ]; then
-            echo "Real Power: ${ups_realpower}W"
-        fi
-        if [ ! -z "${ups_realpowernominal}" ]; then
-            echo "Real Power: ${ups_realpowernominal}W (nominal)"
-        fi
-        if [ ! -z "${ups_inputvoltage}" ]; then
-            echo "Input Voltage: ${ups_inputvoltage}V"
-        fi
-        if [ ! -z "${ups_outputvoltage}" ]; then
-            echo "Output Voltage: ${ups_outputvoltage}V"
-        fi
-        echo "Battery Runtime: ${ups_batteryruntime}s"
-        echo "Battery Charge: ${ups_batterycharge}%"
-        echo "Battery Voltage: ${ups_batteryvoltage}V"
-        echo ""
-        if [ $senddetail -gt 0 ]; then
-            echo "=== ALL AVAILABLE UPS VARIABLES ==="
-            upsc "${ups}"
-            echo ""
-        fi
-    done
+		echo '<pre style="font-size:14px">'
+		echo '<b>########## UPS status report ##########</b>'
+			for ups in ${upslist}; do
+
+				ups_type="$(upsc "${ups}" device.type 2> /dev/null | tr '[:lower:]' '[:upper:]')"
+				ups_mfr="$(upsc "${ups}" ups.mfr 2> /dev/null)"
+				ups_model="$(upsc "${ups}" ups.model 2> /dev/null)"
+				ups_serial="$(upsc "${ups}" ups.serial 2> /dev/null)"
+				ups_status="$(upsc "${ups}" ups.status 2> /dev/null)"
+				ups_load="$(upsc "${ups}" ups.load 2> /dev/null)"
+				ups_realpower="$(upsc "${ups}" ups.realpower 2> /dev/null)"
+				ups_realpowernominal="$(upsc "${ups}" ups.realpower.nominal 2> /dev/null)"
+				ups_batterycharge="$(upsc "${ups}" battery.charge 2> /dev/null)"
+				ups_batteryruntime="$(upsc "${ups}" battery.runtime 2> /dev/null)"
+				ups_batteryvoltage="$(upsc "${ups}" battery.voltage 2> /dev/null)"
+				ups_inputvoltage="$(upsc "${ups}" input.voltage 2> /dev/null)"
+				ups_outputvoltage="$(upsc "${ups}" output.voltage 2> /dev/null)"
+
+				printf "=== %s %s, model %s, serial number %s\n\n" "${ups_mfr}" "${ups_type}" "${ups_model}" "${ups_serial} ==="
+				echo "Name: ${ups}"
+				echo "Status: ${ups_status}"
+				echo "Output Load: ${ups_load}%"
+				if [ ! -z "${ups_realpower}" ]; then
+					echo "Real Power: ${ups_realpower}W"
+				fi
+				if [ ! -z "${ups_realpowernominal}" ]; then
+					echo "Real Power: ${ups_realpowernominal}W (nominal)"
+				fi
+				if [ ! -z "${ups_inputvoltage}" ]; then
+					echo "Input Voltage: ${ups_inputvoltage}V"
+				fi
+				if [ ! -z "${ups_outputvoltage}" ]; then
+					echo "Output Voltage: ${ups_outputvoltage}V"
+				fi
+				echo "Battery Runtime: ${ups_batteryruntime}s"
+				echo "Battery Charge: ${ups_batterycharge}%"
+				echo "Battery Voltage: ${ups_batteryvoltage}V"
+				echo ""
+				if [ "${senddetail}" -gt "0" ]; then
+					echo "=== ALL AVAILABLE UPS VARIABLES ==="
+					upsc "${ups}"
+					echo ""
+				fi
+			done
     ) >> "${logfile}"
 
     echo "</pre>" >> "${logfile}"
@@ -1007,20 +1053,20 @@ fi
 
 ### Print Glabel Status
 (
-    echo "<b>########## Glabel Status ##########</b>"
+    echo '<b>########## Glabel Status ##########</b>'
     glabel status
-    echo "<br><br>"
-) >> "$logfile"
+    echo '<br><br>'
+) >> "${logfile}"
 
 
 ### Zpool status for each pool
-for pool in $pools; do
+for pool in ${pools}; do
     (
         # Create a simple header and drop the output of zpool status -v
-        echo "<b>########## ZPool status report for ${pool} ##########</b>"
-        zpool status -v "$pool"
-        echo "<br><br>"
-    ) >> "$logfile"
+        echo '<b>########## ZPool status report for '"${pool}"' ##########</b>'
+        zpool status -v "${pool}"
+        echo '<br><br>'
+    ) >> "${logfile}"
 done
 
 
@@ -1035,11 +1081,11 @@ for drive in ${drives}; do
         serial="$(smartctl -ij "/dev/${drive}" | jq -Mre '.serial_number | values')"
         (
             # Create a simple header and drop the output of some basic smartctl commands
-            echo "<b>########## SMART status report for ${drive} drive (${brand}: ${serial}) ##########</b>"
+            echo '<b>########## SMART status report for '"${drive}"' drive ('"${brand}: ${serial}"') ##########</b>'
             smartctl -H -A -l error "/dev/${drive}"
-            smartctl -l selftest "/dev/${drive}" | grep "Extended \\|Num" | cut -c6- | head -2
-            smartctl -l selftest "/dev/${drive}" | grep "Short \\|Num" | cut -c6- | head -2 | tail -n -1
-            echo "<br><br>"
+            smartctl -l selftest "/dev/${drive}" | grep 'Extended \\|Num' | cut -c6- | head -2
+            smartctl -l selftest "/dev/${drive}" | grep 'Short \\|Num' | cut -c6- | head -2 | tail -n -1
+            echo '<br><br>'
         ) >> "${logfile}"
 
     elif echo "${drive}" | grep -q "nvme"; then
@@ -1052,9 +1098,9 @@ for drive in ${drives}; do
 		serial="$(echo "${nvmeSmartOut}" | jq -Mre '.serial_number | values')"
 		(
 			# Create a simple header and drop the output of some basic smartctl commands
-            echo "<b>########## SMART status report for ${drive} drive (${brand}: ${serial}) ##########</b>"
+            echo '<b>########## SMART status report for '"${drive}"' drive ('"${brand}: ${serial}"') ##########</b>'
             smartctl -H -A -l error "/dev/${drive}"
-            echo "<br><br>"
+            echo '<br><br>'
 		) >> "${logfile}"
     fi
 done
@@ -1070,12 +1116,12 @@ sed -i '' -e '/SMART Error Log Version/d' "${logfile}"
 
 ### End details section, close MIME section
 (
-    echo "</pre>"
+    echo '</pre>'
     echo "--${boundary}--"
-)  >> "$logfile"
+)  >> "${logfile}"
 
 ### Send report
-sendmail -t -oi < "$logfile"
-if [ "$saveLogfile" == "false" ]; then
-    rm "$logfile"
+sendmail -t -oi < "${logfile}"
+if [ "${saveLogfile}" = "false" ]; then
+    rm "${logfile}"
 fi
