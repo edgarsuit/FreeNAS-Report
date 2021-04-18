@@ -86,19 +86,19 @@ critColor="#ff0000"     # Hex code for CRITICAL color (default is bright red, #f
 altColor="#f4f4f4"      # Table background alternates row colors between white and this color (default is light gray, #f4f4f4)
 
 ### zpool status summary table settings
-usedWarn=90             # Pool used percentage for CRITICAL color to be used
-scrubAgeWarn=30         # Maximum age (in days) of last pool scrub before CRITICAL color will be used
+usedWarn="90"             # Pool used percentage for CRITICAL color to be used
+scrubAgeWarn="30"         # Maximum age (in days) of last pool scrub before CRITICAL color will be used
 
 ### SMART status summary table settings
 includeSSD="true"       # Change to "true" to include SSDs in SMART status summary table; "false" to disable
-lifeRemainWarn=75       # Life remaining in the SSD at which WARNING color will be used
-lifeRemainCrit=50       # Life remaining in the SSD at which CRITICAL color will be used
-totalBWWarn=100         # Total bytes written (in TB) to the SSD at which WARNING color will be used
-totalBWCrit=200         # Total bytes written (in TB) to the SSD at which CRITICAL color will be used
-tempWarn=40             # Drive temp (in C) at which WARNING color will be used
-tempCrit=45             # Drive temp (in C) at which CRITICAL color will be used
-sectorsCrit=10          # Number of sectors per drive with errors before CRITICAL color will be used
-testAgeWarn=5           # Maximum age (in days) of last SMART test before CRITICAL color will be used
+lifeRemainWarn="75"       # Life remaining in the SSD at which WARNING color will be used
+lifeRemainCrit="50"       # Life remaining in the SSD at which CRITICAL color will be used
+totalBWWarn="100"         # Total bytes written (in TB) to the SSD at which WARNING color will be used
+totalBWCrit="200"         # Total bytes written (in TB) to the SSD at which CRITICAL color will be used
+tempWarn="40"             # Drive temp (in C) at which WARNING color will be used
+tempCrit="45"             # Drive temp (in C) at which CRITICAL color will be used
+sectorsCrit="10"          # Number of sectors per drive with errors before CRITICAL color will be used
+testAgeWarn="5"           # Maximum age (in days) of last SMART test before CRITICAL color will be used
 powerTimeFormat="ymdh"  # Format for power-on hours string, valid options are "ymdh", "ymd", "ym", or "y" (year month day hour)
 
 ### TrueNAS config backup settings
@@ -369,7 +369,7 @@ for pool in ${pools}; do
         fi
         readErrors="$((readErrors + err))"
     done
-    writeErrors=0
+    writeErrors="0"
     for err in $(echo "${err}ors" | awk '{print $4}'); do
         if echo "${err}" | grep -E -q "[^0-9]+"; then
             writeErrors="1000"
@@ -377,7 +377,7 @@ for pool in ${pools}; do
         fi
         writeErrors="$((writeErrors + err))"
     done
-    cksumErrors=0
+    cksumErrors="0"
     for err in $(echo "${err}ors" | awk '{print $5}'); do
         if echo "${err}" | grep -E -q "[^0-9]+"; then
             cksumErrors="1000"
