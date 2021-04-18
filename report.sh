@@ -218,7 +218,7 @@ done | awk '{for (i=NF; i!=0 ; i--) print $i }')
 # Toggles the 'ssdExist' flag to true if SSDs are detected in order to add the summary table
 if [ "${includeSSD}" = "true" ]; then
     for drive in ${drives}; do
-        if smartctl -i "/dev/${drive}" | grep -q "Solid State Device"; then
+        if [ "$(smartctl -ij "/dev/${drive}" | jq -Mre '.rotation_rate | values')" = "0" ]; then
             ssdExist="true"
             break
         else
@@ -750,8 +750,9 @@ if [ "${NVMeExist}" = "true" ]; then
 fi
 
 
-###### SSD SMART status summary table
-if [ "${ssdExist}" = "true" ]; then
+# shellcheck disable=SC2155
+function SSDSummary () {
+	###### SSD SMART status summary table
     (
         # Write HTML table headers to log file
         echo '<br><br>'
@@ -779,99 +780,230 @@ if [ "${ssdExist}" = "true" ]; then
         echo '</tr>'
     ) >> "${logfile}"
 
+	local drive
+	local altRow="false"
     for drive in ${drives}; do
-        if smartctl -i "/dev/${drive}" | grep -q "Solid State Device"; then
+        if [ "$(smartctl -ij "/dev/${drive}" | jq -Mre '.rotation_rate | values')" = "0" ]; then
+			# For each drive detected, run "smartctl -Aijl selftest" and parse its output.
+			# Start by parsing out the variables used in other parts of the script.
+			# After parsing the output, compute other values (last test's age, on time in YY-MM-DD-HH).
+			# After these computations, determine the row's background color (alternating as above, subbing in other colors from the palate as needed).
+			# Finally, print the HTML code for the current row of the table with all the gathered data.
+			local ssdInfoSmrt="$(smartctl -Aijl selftest "/dev/${drive}")"
+
+			local device="${drive}"
+
+			# Available if any tests have completed
+			local lastTestHours="$(echo "${ssdInfoSmrt}" | jq -Mre '.ata_smart_self_test_log.standard.table[0].lifetime_hours | values')"
+			local lastTestType="$(echo "${ssdInfoSmrt}" | jq -Mre '.ata_smart_self_test_log.standard.table[0].type.string | values')"
+
+			# Available for any drive smartd knows about
+			local smartStatus="$(smartctl -H "/dev/${drive}" | grep 'SMART overall-health' | cut -d ' ' -sf 6)"
+			local model="$(echo "${ssdInfoSmrt}" | jq -Mre '.model_name | values')"
+			local serial="$(echo "${ssdInfoSmrt}" | jq -Mre '.serial_number | values')"
+			local capacity="$(smartctl -i "/dev/${drive}" | grep '^User Capacity:' | tr -s ' ' | cut -d ' ' -sf '5,6')"
+			local temp="$(echo "${ssdInfoSmrt}"| jq -Mre '.temperature.current | values')"
+			local onHours="$(echo "${ssdInfoSmrt}" | jq -Mre '.power_on_time.hours | values')"
+			local startStop="$(echo "${ssdInfoSmrt}" | jq -Mre '.power_cycle_count | values')"
+			local sectorSize="$(echo "${ssdInfoSmrt}" | jq -Mre '.logical_block_size | values')"
+
+			# Available for most common drives
+			local reAlloc="$(echo "${ssdInfoSmrt}" | jq -Mre '.ata_smart_attributes.table[] | select(.id == 5) | .raw.value | values')"
+			local progFail="$(echo "${ssdInfoSmrt}" | jq -Mre '.ata_smart_attributes.table[] | select(.id == 171) | .raw.value | values')"
+			local eraseFail="$(echo "${ssdInfoSmrt}" | jq -Mre '.ata_smart_attributes.table[] | select(.id == 172) | .raw.value | values')"
+			local offlineUnc="$(echo "${ssdInfoSmrt}" | jq -Mre '.ata_smart_attributes.table[] | select(.id == 187) | .raw.value | values')"
+			local crcErrors="$(echo "${ssdInfoSmrt}" | jq -Mre '.ata_smart_attributes.table[] | select(.id == 199) | .raw.value | values')"
+
+			# No standard attribute for % ssd life remanining
+			local wearLeveling="$(echo "${ssdInfoSmrt}" | jq -Mre '.ata_smart_attributes.table[] | select(.id == 173) | .value | values')"
+			if [ -z "${wearLeveling}" ]; then
+				wearLeveling="$(echo "${ssdInfoSmrt}" | jq -Mre '.ata_smart_attributes.table[] | select(.id == 231) | .value | values')"
+				if [ -z "${wearLeveling}" ]; then
+					wearLeveling="$(echo "${ssdInfoSmrt}" | jq -Mre '.ata_smart_attributes.table[] | select(.id == 233) | .value | values')"
+				fi
+			fi
+
+			# No standard attribute or recording method for data writen
+			local totalLBA="$(echo "${ssdInfoSmrt}" | jq -Mre '.ata_smart_attributes.table[] | select(.id == 246) | .raw.value | values')"
+			if [ -z "${totalLBA}" ]; then
+				totalLBA="$(echo "${ssdInfoSmrt}" | jq -Mre '.ata_smart_attributes.table[] | select(.id == 241) | .raw.value | values')"
+				local Host_Writes="$(echo "${ssdInfoSmrt}" | jq -Mre '.ata_smart_attributes.table[] | select(.id == 241) | .name | values')"
+				if echo "${Host_Writes}" | grep -q 'GiB'; then
+					totalLBA="$(bc <<< "( ${totalLBA} * (1024^3) ) / ${sectorSize}")"
+				elif echo "${Host_Writes}" | grep -q '32MiB'; then
+					totalLBA="$(bc <<< "( (${totalLBA} * 32) * (1024^2) ) / ${sectorSize}")"
+				else
+					totalLBA="0"
+				fi
+			fi
+
+
+			# Get more useful times from hours
+			local testAge="$(bc <<< "(${onHours} - ${lastTestHours}) / 24")"
+			local yrs="$(bc <<< "${onHours} / 8760")"
+			local mos="$(bc <<< "(${onHours} % 8760) / 730")"
+			local dys="$(bc <<< "((${onHours} % 8760) % 730) / 24")"
+			local hrs="$(bc <<< "((${onHours} % 8760) % 730) % 24")"
+
+			# Set Power-On Time format
+			if [ "${powerTimeFormat}" = "ymdh" ]; then
+				local onTime="${yrs}y ${mos}m ${dys}d ${hrs}h"
+			elif [ "${powerTimeFormat}" = "ymd" ]; then
+				local onTime="${yrs}y ${mos}m ${dys}d"
+			elif [ "${powerTimeFormat}" = "ym" ]; then
+				local onTime="${yrs}y ${mos}m"
+			elif [ "${powerTimeFormat}" = "y" ]; then
+				local onTime="${yrs}y"
+			else
+				local onTime="${yrs}y ${mos}m ${dys}d ${hrs}h"
+			fi
+
+			# Set the row background color
+			if [ "${altRow}" = "false" ]; then
+				local bgColor="#ffffff"
+				altRow="true"
+			else
+				local bgColor="${altColor}"
+				altRow="false"
+			fi
+
+			# Colorize Smart Status
+			if [ ! "${smartStatus}" = "PASSED" ]; then
+				local smartStatusColor="${critColor}"
+			else
+				local smartStatusColor="${okColor}"
+			fi
+
+			# Colorize Temp
+			if [ "${temp}" -ge "${tempCrit}" ]; then
+				local tempColor="${critColor}"
+			elif [ "${temp}" -ge "${tempWarn}" ]; then
+				tempColor="${warnColor}"
+			else
+				local tempColor="${bgColor}"
+			fi
+			if [ "${temp}" = "0" ]; then
+				local temp="N/A"
+			else
+				local temp="${temp}&deg;C"
+			fi
+
+			# Colorize Sector Errors
+			if [ "${reAlloc:=0}" -gt "${sectorsCrit}" ]; then
+				local reAllocColor="${critColor}"
+			elif [ ! "${reAlloc}" = "0" ]; then
+				local reAllocColor="${warnColor}"
+			else
+				local reAllocColor="${bgColor}"
+			fi
+
+			# Colorize Program Fail
+			if [ "${progFail:=0}" -gt "${sectorsCrit}" ]; then
+				local progFailColor="${critColor}"
+			elif [ ! "${progFail}" = "0" ]; then
+				local progFailColor="${warnColor}"
+			else
+				local progFailColor="${bgColor}"
+			fi
+
+			# Colorize Erase Fail
+			if [ "${eraseFail:=0}" -gt "${sectorsCrit}" ]; then
+				local eraseFailColor="${critColor}"
+			elif [ ! "${eraseFail}" = "0" ]; then
+				local eraseFailColor="${warnColor}"
+			else
+				local eraseFailColor="${bgColor}"
+			fi
+
+			# Colorize Offline Uncorrectable
+			if [ "${offlineUnc:=0}" -gt "${sectorsCrit}" ]; then
+				local offlineUncColor="${critColor}"
+			elif [ ! "${offlineUnc}" = "0" ]; then
+				local offlineUncColor="${warnColor}"
+			else
+				local offlineUncColor="${bgColor}"
+			fi
+
+			# Colorize CRC Errors
+			if [ ! "${crcErrors:=0}" = "0" ]; then
+				local crcErrorsColor="${warnColor}"
+			else
+				local crcErrorsColor="${bgColor}"
+			fi
+
+			# Colorize Wear Leveling
+			if [ "${wearLeveling}" -le "${lifeRemainCrit}" ]; then
+				local wearLevelingColor="${critColor}"
+			elif [ "${wearLeveling}" -le "${lifeRemainWarn}" ]; then
+				local wearLevelingColor="${warnColor}"
+			else
+				local wearLevelingColor="${bgColor}"
+			fi
+
+			# Colorize & derive write stats
+			local totalBW="$(bc <<< "scale=1; (${totalLBA} * ${sectorSize}) / (1024^4)" | sed -e 's:^\.:0.:')"
+			if (( $(bc -l <<< "${totalBW}" > "${totalBWCrit}") )); then
+				local totalBWColor="${critColor}"
+			elif (( $(bc -l <<< "${totalBW}" > "${totalBWWarn}") )); then
+				local totalBWColor="${warnColor}"
+			else
+				local totalBWColor="${bgColor}"
+			fi
+			if [ "${totalBW}" = "0.0" ]; then
+				totalBW="N/A"
+			else
+				totalBW="${totalBW}TB"
+			fi
+			local bwPerDay="$(bc <<< "scale=1; (((${totalLBA} * ${sectorSize}) / (1024^4)) * 1024) / (${onHours} / 24)" | sed -e 's:^\.:0.:')"
+			if [ "${bwPerDay}" = "0.0" ]; then
+				bwPerDay="N/A"
+			else
+				bwPerDay="${bwPerDay}GB"
+			fi
+
+			# Colorize test age
+			if [ "${testAge}" -gt "${testAgeWarn}" ]; then
+				testAgeColor="${critColor}"
+			else
+				testAgeColor="${bgColor}"
+			fi
+
+
             (
-                # For each drive detected, run "smartctl -A -i" and parse its output. This whole section is a single, long statement, so I'll make all comments here.
-                # Start by passing awk variables (all the -v's) used in other parts of the script. Other variables are calculated in-line with other smartctl calls.
-                # Next, pull values out of the original "smartctl -A -i" statement by searching for the text between the //'s.
-                # After parsing the output, compute other values (last test's age, on time in YY-MM-DD-HH).
-                # After these computations, determine the row's background color (alternating as above, subbing in other colors from the palate as needed).
-                # Finally, print the HTML code for the current row of the table with all the gathered data.
-                ssdInfoSmrt="$(smartctl -A -i "/dev/${drive}")"
-                if echo "${ssdInfoSmrt}" | grep -q "^231"; then
-            		ssdInfoSmrt="$(echo "${ssdInfoSmrt}" | grep -v '^233')"
-            	fi
-                echo "${ssdInfoSmrt}" | \
-                awk -v device="${drive}" -v tempWarn="${tempWarn}" -v tempCrit="${tempCrit}" -v sectorsCrit="${sectorsCrit}" -v testAgeWarn="${testAgeWarn}" \
-                -v okColor="${okColor}" -v warnColor="${warnColor}" -v critColor="${critColor}" -v altColor="${altColor}" -v powerTimeFormat="${powerTimeFormat}" \
-                -v totalBWWarn="${totalBWWarn}" -v totalBWCrit="${totalBWCrit}" -v lifeRemainWarn="${lifeRemainWarn}" -v lifeRemainCrit="${lifeRemainCrit}" \
-                -v lastTestHours="$(smartctl -jl selftest "/dev/${drive}" | jq -Mre '.ata_smart_self_test_log.standard.table[0].lifetime_hours | values')" \
-                -v lastTestType="$(smartctl -jl selftest "/dev/${drive}" | jq -Mre '.ata_smart_self_test_log.standard.table[0].type.string | values')" \
-                -v smartStatus="$(smartctl -H "/dev/${drive}" | grep "SMART overall-health" | awk '{print $6}')" ' \
-                /Device Model:/{$1="";$2=""; model=$0} \
-                /Serial Number:/{serial=$3} \
-                /User Capacity:/{capacity=$5 $6} \
-                $1 ~ /^194$/{temp=($10 + 0)} \
-                $1 ~ /^9$/{onHours=$10} \
-                $1 ~ /^12$/{startStop=$10} \
-                $1 ~ /^5$/{reAlloc=$10} \
-                $1 ~ /^171$/{progFail=$10} \
-                $1 ~ /^172$/{eraseFail=$10} \
-                $1 ~ /^187$/{offlineUnc=$10} \
-                $1 ~ /^199$/{crcErrors=$10} \
-                {if ($1 ~ /^173$/) {wearLeveling=$4}} \
-                {if ($1 ~ /^(231)|(233)$/) {wearLeveling=$4}} \
-                /Sector Size/{sectorSize=$3} \
-                $1 ~ /^241$/ || $1 ~ /^246$/{totalLBA=$10} \
-                END {
-                    testAge=int((onHours - lastTestHours) / 24);
-                    yrs=int(onHours / 8760);
-                    mos=int((onHours % 8760) / 730);
-                    dys=int(((onHours % 8760) % 730) / 24);
-                    hrs=((onHours % 8760) % 730) % 24;
-                    if (powerTimeFormat == "ymdh") onTime=yrs "y " mos "m " dys "d " hrs "h ";
-                    else if (powerTimeFormat == "ymd") onTime=yrs "y " mos "m " dys "d ";
-                    else if (powerTimeFormat == "ym") onTime=yrs "y " mos "m ";
-                    else if (powerTimeFormat == "y") onTime=yrs "y ";
-                    else onTime=yrs "y " mos "m " dys "d " hrs "h ";
-                    if ((substr(device, length(device), 1) + 0) % 2 == 1) bgColor = "#ffffff"; else bgColor = altColor;
-                    if (smartStatus != "PASSED") smartStatusColor = critColor; else smartStatusColor = okColor;
-                    if (temp >= tempCrit) tempColor = critColor; else if (temp >= tempWarn) tempColor = warnColor; else tempColor = bgColor;
-                    if (temp == 0) temp = "N/A"; else temp = temp "*C";
-                    if ((reAlloc + 0) > sectorsCrit) reAllocColor = critColor; else if (reAlloc != 0) reAllocColor = warnColor; else reAllocColor = bgColor;
-                    if ((progFail + 0) > sectorsCrit) progFailColor = critColor; else if (progFail != 0) progFailColor = warnColor; else progFailColor = bgColor;
-                    if ((eraseFail + 0) > sectorsCrit) eraseFailColor = critColor; else if (eraseFail != 0) eraseFailColor = warnColor; else eraseFailColor = bgColor;
-                    if ((offlineUnc + 0) > sectorsCrit) offlineUncColor = critColor; else if (offlineUnc != 0) offlineUncColor = warnColor; else offlineUncColor = bgColor;
-                    if (crcErrors != "0") crcErrorsColor = warnColor; else crcErrorsColor = bgColor;
-                    if (wearLeveling <= lifeRemainCrit) wearLevelingColor = critColor; else if (wearLeveling <= lifeRemainWarn) wearLevelingColor = warnColor; else wearLevelingColor = bgColor;
-                    totalBW=(((totalLBA * sectorSize) / 1048576) / 1048576);
-                    if (totalBW >= totalBWCrit) totalBWColor = critColor; else if (totalBW >= totalBWWarn) totalBWColor = warnColor; else totalBWColor = bgColor;
-                    if (totalBW == 0) totalBW = "N/A"; else totalBW = (int(totalBW) + int(((totalBW - int(totalBW)) * 10) + 0.501) / 10) "TB";
-                    bwPerDay=((totalBW * 1024)/ (onHours / 24));
-                    if (totalBW == "N/A") bwPerDay = "N/A"; else bwPerDay = (int(bwPerDay) + int(((bwPerDay - int(bwPerDay)) * 10) + 0.501) / 10) "GB";
-                    if (testAge > testAgeWarn) testAgeColor = critColor; else testAgeColor = bgColor;
-                    printf "<tr style=\"background-color:%s;\">" \
-                        "<td style=\"text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;\">/dev/%s</td>" \
-                        "<td style=\"text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;\">%s</td>" \
-                        "<td style=\"text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;\">%s</td>" \
-                        "<td style=\"text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;\">%s</td>" \
-                        "<td style=\"text-align:center; background-color:%s; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;\">%s</td>" \
-                        "<td style=\"text-align:center; background-color:%s; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;\">%s</td>" \
-                        "<td style=\"text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;\">%s</td>" \
-                        "<td style=\"text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;\">%s</td>" \
-                        "<td style=\"text-align:center; background-color:%s; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;\">%s</td>" \
-                        "<td style=\"text-align:center; background-color:%s; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;\">%s</td>" \
-                        "<td style=\"text-align:center; background-color:%s; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;\">%s</td>" \
-                        "<td style=\"text-align:center; background-color:%s; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;\">%s</td>" \
-                        "<td style=\"text-align:center; background-color:%s; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;\">%s</td>" \
-                        "<td style=\"text-align:center; background-color:%s; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;\">%d%%</td>" \
-                        "<td style=\"text-align:center; background-color:%s; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;\">%s</td>" \
-                        "<td style=\"text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;\">%s</td>" \
-                        "<td style=\"text-align:center; background-color:%s; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;\">%d</td>" \
-                        "<td style=\"text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;\">%s</td>" \
-                    "</tr>\n", bgColor, device, model, serial, capacity, smartStatusColor, smartStatus, tempColor, temp, onTime, startStop, reAllocColor, reAlloc, \
-                    progFailColor, progFail, eraseFailColor, eraseFail, offlineUncColor, offlineUnc, crcErrorsColor, crcErrors, wearLevelingColor, wearLeveling, totalBWColor, totalBW, \
-                    bwPerDay, testAgeColor, testAge, lastTestType;
-                }'
+				# Row Output
+				echo '<tr style="background-color:'"${bgColor}"';">'
+				echo '<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"/dev/${device}"'</td>'
+				echo '<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${model}"'</td>'
+				echo '<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${serial}"'</td>'
+				echo '<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${capacity}"'</td>'
+				echo '<td style="text-align:center; background-color:'"${smartStatusColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${smartStatus}"'</td>'
+				echo '<td style="text-align:center; background-color:'"${tempColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${temp}"'</td>'
+				echo '<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${onTime}"'</td>'
+				echo '<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${startStop}"'</td>'
+				echo '<td style="text-align:center; background-color:'"${reAllocColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${reAlloc}"'</td>'
+				echo '<td style="text-align:center; background-color:'"${progFailColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${progFail}"'</td>'
+				echo '<td style="text-align:center; background-color:'"${eraseFailColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${eraseFail}"'</td>'
+				echo '<td style="text-align:center; background-color:'"${offlineUncColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${offlineUnc}"'</td>'
+				echo '<td style="text-align:center; background-color:'"${crcErrorsColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${crcErrors}"'</td>'
+				echo '<td style="text-align:center; background-color:'"${wearLevelingColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${wearLeveling}"'%</td>'
+				echo '<td style="text-align:center; background-color:'"${totalBWColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${totalBW}"'</td>'
+				echo '<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${bwPerDay}"'</td>'
+				echo '<td style="text-align:center; background-color:'"${testAgeColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${testAge}"'</td>'
+				echo '<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${lastTestType}"'</td>'
+				echo '</tr>'
             ) >> "${logfile}"
         fi
     done
 
-    # End SMART summary table and summary section
+    # End SSD SMART summary table
     (
         echo '</table>'
     ) >> "${logfile}"
+}
+
+
+if [ "${ssdExist}" = "true" ]; then
+	SSDSummary
 fi
 
 
