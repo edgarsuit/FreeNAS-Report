@@ -199,7 +199,7 @@ fi
 
 
 ###### Auto-generated Parameters
-host=$(hostname -s)
+host="$(hostname -s)"
 runDate="$(date '+%s')"
 logfile="${logfileLocation}/$(date -r "${runDate}" '+%Y%m%d%H%M%S')_${logfileName}.tmp"
 subject="Status Report and Configuration Backup for ${host} - $(date -r "${runDate}" '+%Y-%m-%d %H:%M')"
@@ -243,7 +243,7 @@ done
 
 ###### Email pre-formatting
 ### Set email headers
-(
+{
     echo "From: ${host} <root@$(hostname)>"
     echo "To: ${email}"
     echo "Subject: ${subject}"
@@ -251,7 +251,7 @@ done
     echo 'Content-Type: multipart/mixed; boundary="'"${boundary}"'"'
     echo "Date: $(date -Rr "${runDate}")"
     echo "Message-Id: <${messageid}@${host}>"
-) > "${logfile}"
+} > "${logfile}"
 
 
 
@@ -268,14 +268,14 @@ if [ "$configBackup" = "true" ]; then
     if [ ! "$(sqlite3 "/data/freenas-v1.db" "pragma integrity_check;")" = "ok" ]; then
 
         # Config integrity check failed, set MIME content type to html and print warning
-        (
+        {
             echo "--${boundary}"
             echo "Content-Transfer-Encoding: 8bit"
             echo -e "Content-Type: text/html; charset=utf-8\n"
             echo "<b>Automatic backup of TrueNAS configuration has failed! The configuration file is corrupted!</b>"
             echo "<b>You should correct this problem as soon as possible!</b>"
             echo "<br>"
-        ) >> "${logfile}"
+        } >> "${logfile}"
     else
         # Config integrity check passed; copy config db, generate checksums, make .tar.gz archive
         sqlite3 "/data/freenas-v1.db" ".backup main /tmp/${filename}.db"
@@ -285,7 +285,7 @@ if [ "$configBackup" = "true" ]; then
             cd "/tmp/" || exit;
             tar -czf "${tarfile}" "./${filename}.db" "./config_backup.md5" "./config_backup.sha256"
         )
-        (
+        {
 			if [ "${emailBackup}" = "true" ]; then
 				# Write MIME section header for file attachment (encoded with base64)
 				echo "--${boundary}"
@@ -299,7 +299,7 @@ if [ "$configBackup" = "true" ]; then
             echo "--${boundary}"
             echo "Content-Transfer-Encoding: 8bit"
             echo -e "Content-Type: text/html; charset=utf-8\n"
-        ) >> "${logfile}"
+        } >> "${logfile}"
 
         # If logfile saving is enabled, copy .tar.gz file to specified location before it (and everything else) is removed below
         if [ "${saveBackup}" = "true" ]; then
@@ -312,18 +312,18 @@ if [ "$configBackup" = "true" ]; then
     fi
 else
     # Config backup disabled; set up for html-type content
-    (
+    {
         echo "--${boundary}"
         echo "Content-Transfer-Encoding: 8bit"
         echo -e "Content-Type: text/html; charset=utf-8\n"
-    ) >> "${logfile}"
+    } >> "${logfile}"
 fi
 
 
 ###### Report Summary Section (html tables)
 
 ### zpool status summary table
-(
+{
     # Write HTML table headers to log file; HTML in an email requires 100% in-line styling (no CSS or <style> section), hence the massive tags
     echo '<br><br>'
     echo '<table style="border: 1px solid black; border-collapse: collapse;">'
@@ -344,7 +344,7 @@ fi
     echo '<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Last<br>Scrub<br>Age (days)</th>'
     echo '<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Last<br>Scrub<br>Duration</th>'
     echo '</tr>'
-) >> "${logfile}"
+} >> "${logfile}"
 
 poolNum="0"
 pools="$(zpool list -H -o name)"
@@ -506,7 +506,7 @@ for pool in ${pools}; do
 		scrubAgeColor="${bgColor}"
     fi
 
-    (
+    {
         # Use the information gathered above to write the date to the current table row
 		echo '<tr style="background-color:'"${bgColor}"'">'
 		echo '<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${pool}"'</td>'
@@ -524,7 +524,7 @@ for pool in ${pools}; do
 		echo '<td style="text-align:center; background-color:'"${scrubAgeColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${scrubAge}"'</td>'
 		echo '<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${scrubTime}"'</td>'
 		echo '</tr>'
-    ) >> "${logfile}"
+    } >> "${logfile}"
 done
 
 # End of zpool status table
@@ -538,7 +538,7 @@ echo '</table>' >> "${logfile}"
 function NVMeSummary () {
 
 	###### NVMe SMART status summary table
-	(
+	{
 		# Write HTML table headers to log file
 		echo '<br><br>'
 		echo '<table style="border: 1px solid black; border-collapse: collapse;">'
@@ -547,11 +547,11 @@ function NVMeSummary () {
 
 		echo '  <th style="text-align:center; width:100px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Device</th>' # Device
 
-		echo '  <th style="text-align:center; width:130px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Model</th>' # Model
+		echo '  <th style="text-align:center; width:140px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Model</th>' # Model
 
 		echo '  <th style="text-align:center; width:130px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Serial<br>Number</th>' # Serial Number
 
-		echo '  <th style="text-align:center; width:100px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Capacity</th>' # Capacity
+		echo '  <th style="text-align:center; width:90px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Capacity</th>' # Capacity
 
 		echo '  <th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">SMART<br>Status</th>' # SMART Status
 
@@ -578,7 +578,7 @@ function NVMeSummary () {
 		echo '  <th style="text-align:center; width:100px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Last Test<br>Type</th></tr>' # Last Test Type
 
 		echo '</tr>'
-	) >> "${logfile}"
+	} >> "${logfile}"
 
 
 	local drive
@@ -723,7 +723,7 @@ function NVMeSummary () {
 			fi
 
 
-			(
+			{
 				# Output the row
 				echo '<tr style="background-color:'"${bgColor}"';">'
 				echo '<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"/dev/${drive}"'</td> <!-- device -->'
@@ -743,14 +743,14 @@ function NVMeSummary () {
 				echo '<td style="text-align:center; background-color:'"${testAgeColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">N/A</td> <!-- testAgeColor, testAge -->'
 				echo '<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;\">N/A</td> <!-- lastTestType -->'
 				echo '</tr>'
-			) >> "${logfile}"
+			} >> "${logfile}"
 		fi
 	done
 
 	# End SMART summary table section
-	(
+	{
 		echo "</table>"
-	) >> "${logfile}"
+	} >> "${logfile}"
 }
 
 
@@ -762,7 +762,7 @@ fi
 # shellcheck disable=SC2155
 function SSDSummary () {
 	###### SSD SMART status summary table
-    (
+    {
         # Write HTML table headers to log file
         echo '<br><br>'
         echo '<table style="border: 1px solid black; border-collapse: collapse;">'
@@ -787,7 +787,7 @@ function SSDSummary () {
         echo '<th style="text-align:center; width:100px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Last Test<br>Age (days)</th>'
         echo '<th style="text-align:center; width:100px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Last Test<br>Type</th></tr>'
         echo '</tr>'
-    ) >> "${logfile}"
+    } >> "${logfile}"
 
 	local drive
 	local altRow="false"
@@ -978,7 +978,7 @@ function SSDSummary () {
 			fi
 
 
-            (
+            {
 				# Row Output
 				echo '<tr style="background-color:'"${bgColor}"';">'
 				echo '<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"/dev/${device}"'</td>'
@@ -1000,14 +1000,14 @@ function SSDSummary () {
 				echo '<td style="text-align:center; background-color:'"${testAgeColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${testAge}"'</td>'
 				echo '<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${lastTestType}"'</td>'
 				echo '</tr>'
-            ) >> "${logfile}"
+            } >> "${logfile}"
         fi
     done
 
     # End SSD SMART summary table
-    (
+    {
         echo '</table>'
-    ) >> "${logfile}"
+    } >> "${logfile}"
 }
 
 
@@ -1020,7 +1020,7 @@ fi
 # shellcheck disable=SC2155
 function HDDSummary () {
 	###### HDD SMART status summary table
-	(
+	{
 		# Write HTML table headers to log file
 		echo '<br><br>'
 		echo '<table style="border: 1px solid black; border-collapse: collapse;">'
@@ -1045,7 +1045,7 @@ function HDDSummary () {
 		echo '<th style="text-align:center; width:100px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Last Test<br>Age (days)</th>'
 		echo '<th style="text-align:center; width:100px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Last Test<br>Type</th></tr>'
 		echo '</tr>'
-	) >> "${logfile}"
+	} >> "${logfile}"
 
 	local drive
 	local altRow="false"
@@ -1197,7 +1197,7 @@ function HDDSummary () {
 			fi
 
 
-			(
+			{
 				# Row Output
 				echo '<tr style="background-color:'"${bgColor}"';">'
 				echo '<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"/dev/${device}"'</td>'
@@ -1219,15 +1219,15 @@ function HDDSummary () {
 				echo '<td style="text-align:center; background-color:'"${testAgeColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${testAge}"'</td>'
 				echo '<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${lastTestType}"'</td>'
 				echo '</tr>'
-			) >> "${logfile}"
+			} >> "${logfile}"
 		fi
 	done
 
 	# End SMART summary table and summary section
-	(
+	{
 		echo '</table>'
 		echo '<br><br>'
-	) >> "${logfile}"
+	} >> "${logfile}"
 }
 
 
@@ -1303,21 +1303,21 @@ fi
 
 
 ### Print Glabel Status
-(
+{
     echo '<b>########## Glabel Status ##########</b>'
     glabel status
     echo '<br><br>'
-) >> "${logfile}"
+} >> "${logfile}"
 
 
 ### Zpool status for each pool
 for pool in ${pools}; do
-    (
+    {
         # Create a simple header and drop the output of zpool status -v
         echo '<b>########## ZPool status report for '"${pool}"' ##########</b>'
         zpool status -v "${pool}"
         echo '<br><br>'
-    ) >> "${logfile}"
+    } >> "${logfile}"
 done
 
 
@@ -1330,14 +1330,14 @@ for drive in ${drives}; do
             brand="$(smartctl -ij "/dev/${drive}" | jq -Mre '.model_name | values')";
         fi
         serial="$(smartctl -ij "/dev/${drive}" | jq -Mre '.serial_number | values')"
-        (
+        {
             # Create a simple header and drop the output of some basic smartctl commands
             echo '<b>########## SMART status report for '"${drive}"' drive ('"${brand}: ${serial}"') ##########</b>'
             smartctl -H -A -l error "/dev/${drive}"
             smartctl -l selftest "/dev/${drive}" | grep 'Extended \\|Num' | cut -c6- | head -2
             smartctl -l selftest "/dev/${drive}" | grep 'Short \\|Num' | cut -c6- | head -2 | tail -n -1
             echo '<br><br>'
-        ) >> "${logfile}"
+        } >> "${logfile}"
 
     elif echo "${drive}" | grep -q "nvme"; then
         # Gather brand and serial number of each drive
@@ -1347,12 +1347,12 @@ for drive in ${drives}; do
             brand="$(echo "${nvmeSmartOut}" | jq -Mre '.model_name | values')";
         fi
 		serial="$(echo "${nvmeSmartOut}" | jq -Mre '.serial_number | values')"
-		(
+		{
 			# Create a simple header and drop the output of some basic smartctl commands
             echo '<b>########## SMART status report for '"${drive}"' drive ('"${brand}: ${serial}"') ##########</b>'
             smartctl -H -A -l error "/dev/${drive}"
             echo '<br><br>'
-		) >> "${logfile}"
+		} >> "${logfile}"
     fi
 done
 
