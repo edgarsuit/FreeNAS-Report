@@ -239,6 +239,9 @@ for drive in ${drives}; do
 	fi
 done
 
+# Get a list of pools
+pools="$(zpool list -H -o name)"
+
 
 
 ###### Email pre-formatting
@@ -331,213 +334,247 @@ fi
 
 ###### Report Summary Section (html tables)
 
-### zpool status summary table
-{
-    # Write HTML table headers to log file; HTML in an email requires 100% in-line styling (no CSS or <style> section), hence the massive tags
-    echo '<br><br>'
-    echo '<table style="border: 1px solid black; border-collapse: collapse;">'
-    echo '<tr><th colspan="14" style="text-align:center; font-size:20px; height:40px; font-family:courier;">ZPool Status Report Summary</th></tr>'
-    echo '<tr>'
-    echo '<th style="text-align:center; width:130px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Pool<br>Name</th>'
-    echo '<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Status</th>'
-    echo '<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Size</th>'
-    echo '<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Allocated</th>'
-    echo '<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Free</th>'
-    echo '<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Frag %</th>'
-    echo '<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Used %</th>'
-    echo '<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Read<br>Errors</th>'
-    echo '<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Write<br>Errors</th>'
-    echo '<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Cksum<br>Errors</th>'
-    echo '<th style="text-align:center; width:100px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Scrub<br>Repaired<br>Bytes</th>'
-    echo '<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Scrub<br>Errors</th>'
-    echo '<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Last<br>Scrub<br>Age (days)</th>'
-    echo '<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Last<br>Scrub<br>Duration</th>'
-    echo '</tr>'
-} >> "${logfile}"
+function ZpoolSummary () {
+	local poolNum
+	local pool
+	local status
+	local frag
+	local size
+	local allocated
+	local free
+	local errors
+	local readErrors
+	local err
+	local writeErrors
+	local cksumErrors
+	local used
+	local scrubRepBytes
+	local scrubErrors
+	local scrubAge
+	local scrubTime
+	local resilver
+	local statusOutput
+	local bgColor
+	local statusColor
+	local readErrorsColor
+	local writeErrorsColor
+	local cksumErrorsColor
+	local usedColor
+	local scrubRepBytesColor
+	local scrubErrorsColor
+	local scrubAgeColor
 
-poolNum="0"
-pools="$(zpool list -H -o name)"
-for pool in ${pools}; do
 
-    # zpool health summary
-    status="$(zpool list -H -o health "${pool}")"
-
-    # zpool fragment summary
-    frag="$(zpool list -H -p -o frag "${pool}" | tr -d %% | awk '{print $0 + 0}')"
-    size="$(zpool list -H -o size "${pool}")"
-    allocated="$(zpool list -H -o allocated "${pool}")"
-    free="$(zpool list -H -o free "${pool}")"
-
-    # Total all read, write, and checksum errors per pool
-    errors="$(zpool status "${pool}" | grep -E "(ONLINE|DEGRADED|FAULTED|UNAVAIL|REMOVED)[ \\t]+[0-9]+")"
-    readErrors="0"
-    for err in $(echo "${errors}" | awk '{print $3}'); do
-        if echo "${err}" | grep -E -q "[^0-9]+"; then
-            readErrors="1000"
-            break
-        fi
-        readErrors="$((readErrors + err))"
-    done
-    writeErrors="0"
-    for err in $(echo "${err}ors" | awk '{print $4}'); do
-        if echo "${err}" | grep -E -q "[^0-9]+"; then
-            writeErrors="1000"
-            break
-        fi
-        writeErrors="$((writeErrors + err))"
-    done
-    cksumErrors="0"
-    for err in $(echo "${err}ors" | awk '{print $5}'); do
-        if echo "${err}" | grep -E -q "[^0-9]+"; then
-            cksumErrors="1000"
-            break
-        fi
-        cksumErrors="$((cksumErrors + err))"
-    done
-    # Not sure why this changes values larger than 1000 to ">1K", but I guess it works, so I'm leaving it
-    if [ "${readErrors}" -gt 999 ]; then readErrors=">1K"; fi
-    if [ "${writeErrors}" -gt 999 ]; then writeErrors=">1K"; fi
-    if [ "${cksumErrors}" -gt 999 ]; then cksumErrors=">1K"; fi
-
-    # Get used capacity percentage of the zpool
-    used="$(zpool list -H -p -o capacity "${pool}")"
-
-    # Gather info from most recent scrub; values set to "N/A" initially and overwritten when (and if) it gathers scrub info
-    scrubRepBytes="N/A"
-    scrubErrors="N/A"
-    scrubAge="N/A"
-    scrubTime="N/A"
-    resilver=""
-
-    statusOutput="$(zpool status "${pool}")"
-    # normal status i.e. scrub
-    if [ "$(echo "${statusOutput}" | grep "scan:" | awk '{print $2" "$3}')" = "scrub repaired" ]; then
-        scrubRepBytes="$(echo "${statusOutput}" | grep "scan:" | awk '{gsub(/B/,"",$4); print $4}')"
-        scrubErrors="$(echo "${statusOutput}" | grep "scan:" | awk '{print $8}')"
-
-        # Convert time/datestamp format presented by zpool status, compare to current date, calculate scrub age
-        scrubDate="$(echo "${statusOutput}" | grep "scan:" | awk '{print $15"-"$12"-"$13"_"$14}')"
-        scrubTS="$(date -j -f '%Y-%b-%e_%H:%M:%S' "${scrubDate}" '+%s')"
-        currentTS="${runDate}"
-        scrubAge="$((((currentTS - scrubTS) + 43200) / 86400))"
-        scrubTime="$(echo "${statusOutput}" | grep "scan" | awk '{print $6}')"
-
-    # if status is resilvered
-    elif [ "$(echo "${statusOutput}" | grep "scan:" | awk '{print $2}')" = "resilvered" ]; then
-            resilver="<BR>Resilvered"
-            scrubRepBytes="$(echo "${statusOutput}" | grep "scan:" | awk '{print $3}')"
-            scrubErrors="$(echo "${statusOutput}" | grep "scan:" | awk '{print $9}')"
-
-            # Convert time/datestamp format presented by zpool status, compare to current date, calculate scrub age
-            scrubDate="$(echo "${statusOutput}" | grep "scan:" | awk '{print $16"-"$13"-"$14"_"$15}')"
-            scrubTS="$(date -j -f '%Y-%b-%e_%H:%M:%S' "${scrubDate}" '+%s')"
-            currentTS="${runDate}"
-            scrubAge="$((((currentTS - scrubTS) + 43200) / 86400))"
-            scrubTime="$(echo "${statusOutput}" | grep "scan:" | awk '{print $7}')"
-
-    # Check if resilver is in progress
-    elif [ "$(echo "${statusOutput}"| grep "scan:" | awk '{print $2}')" = "resilver" ]; then
-        scrubRepBytes="Resilver In Progress"
-        scrubAge="$(echo "${statusOutput}" | grep "resilvered," | awk '{print $3" done"}')"
-        if [ "$(echo "${statusOutput}" | grep "resilvered," | awk '{print $5}')" = "0" ]; then
-            scrubTime="$(echo "${statusOutput}" | grep "resilvered," | awk '{print $7"<br>to go"}')"
-        else
-            scrubTime="$(echo "${statusOutput}" | grep "resilvered," | awk '{print $5" "$6" "$7"<br>to go"}')"
-        fi
-
-    # Check if scrub is in progress
-    elif [ "$(echo "${statusOutput}"| grep "scan:" | awk '{print $4}')" = "progress" ]; then
-        scrubRepBytes="Scrub In Progress"
-        scrubErrors="$(echo "${statusOutput}" | grep "repaired," | awk '{print $1" repaired"}')"
-        scrubAge="$(echo "${statusOutput}" | grep "repaired," | awk '{print $3" done"}')"
-        if [ "$(echo "${statusOutput}" | grep "repaired," | awk '{print $5}')" = "0" ]; then
-            scrubTime="$(echo "${statusOutput}" | grep "repaired," | awk '{print $7"<br>to go"}')"
-        else
-            scrubTime="$(echo "${statusOutput}" | grep "repaired," | awk '{print $5" "$6" "$7"<br>to go"}')"
-        fi
-    fi
-
-    # Set row's background color; alternates between white and $altColor (light gray)
-    if [ "$((poolNum % 2))" = "1" ]; then
-		bgColor="#ffffff"
-    else
-		bgColor="$altColor"
-    fi
-    poolNum="$((poolNum + 1))"
-
-    # Set up conditions for warning or critical colors to be used in place of standard background colors
-    if [ ! "${status}" = "ONLINE" ]; then
-		statusColor="${warnColor}"
-    else
-		statusColor="${bgColor}"
-    fi
-    status+="${resilver}"
-
-    if [ ! "${readErrors}" = "0" ]; then
-		readErrorsColor="${warnColor}"
-    else
-		readErrorsColor="${bgColor}"
-    fi
-
-    if [ ! "${writeErrors}" = "0" ]; then
-		writeErrorsColor="${warnColor}"
-    else
-		writeErrorsColor="${bgColor}"
-    fi
-
-    if [ ! "${cksumErrors}" = "0" ]; then
-		cksumErrorsColor="${warnColor}"
-    else
-		cksumErrorsColor="${bgColor}"
-    fi
-
-    if [ "${used}" -gt "${usedWarn}" ]; then
-		usedColor="${warnColor}"
-    else
-		usedColor="${bgColor}"
-    fi
-
-    if [ ! "${scrubRepBytes}" = "N/A" ] && [ ! "${scrubRepBytes}" = "0" ] && [ ! "${scrubRepBytes}" = "0B" ]; then
-        scrubRepBytesColor="${warnColor}"
-	else
-		scrubRepBytesColor="${bgColor}"
-	fi
-
-    if [ ! "${scrubErrors}" = "N/A" ] && [ ! "${scrubErrors}" = "0" ]; then
-		scrubErrorsColor="${warnColor}"
-    else
-		scrubErrorsColor="${bgColor}"
-    fi
-
-    if [ "$(echo "$scrubAge" | awk '{print int($1)}')" -gt "${scrubAgeWarn}" ]; then
-		scrubAgeColor="${warnColor}"
-    else
-		scrubAgeColor="${bgColor}"
-    fi
-
-    {
-        # Use the information gathered above to write the date to the current table row
-		echo '<tr style="background-color:'"${bgColor}"'">'
-		echo '<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${pool}"'</td>'
-		echo '<td style="text-align:center; background-color:'"${statusColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${status}"'</td>'
-		echo '<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${size}"'</td>'
-		echo '<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${allocated}"'</td>'
-		echo '<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${free}"'</td>'
-		echo '<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${frag}"'%</td>'
-		echo '<td style="text-align:center; background-color:'"${usedColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${used}"'%</td>'
-		echo '<td style="text-align:center; background-color:'"${readErrorsColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${readErrors}"'</td>'
-		echo '<td style="text-align:center; background-color:'"${writeErrorsColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${writeErrors}"'</td>'
-		echo '<td style="text-align:center; background-color:'"${cksumErrorsColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${cksumErrors}"'</td>'
-		echo '<td style="text-align:center; background-color:'"${scrubRepBytesColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${scrubRepBytes}"'</td>'
-		echo '<td style="text-align:center; background-color:'"${scrubErrorsColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${scrubErrors}"'</td>'
-		echo '<td style="text-align:center; background-color:'"${scrubAgeColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${scrubAge}"'</td>'
-		echo '<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${scrubTime}"'</td>'
+	### zpool status summary table
+	{
+		# Write HTML table headers to log file; HTML in an email requires 100% in-line styling (no CSS or <style> section), hence the massive tags
+		echo '<br><br>'
+		echo '<table style="border: 1px solid black; border-collapse: collapse;">'
+		echo '<tr><th colspan="14" style="text-align:center; font-size:20px; height:40px; font-family:courier;">ZPool Status Report Summary</th></tr>'
+		echo '<tr>'
+		echo '<th style="text-align:center; width:130px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Pool<br>Name</th>'
+		echo '<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Status</th>'
+		echo '<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Size</th>'
+		echo '<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Allocated</th>'
+		echo '<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Free</th>'
+		echo '<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Frag %</th>'
+		echo '<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Used %</th>'
+		echo '<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Read<br>Errors</th>'
+		echo '<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Write<br>Errors</th>'
+		echo '<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Cksum<br>Errors</th>'
+		echo '<th style="text-align:center; width:100px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Scrub<br>Repaired<br>Bytes</th>'
+		echo '<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Scrub<br>Errors</th>'
+		echo '<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Last<br>Scrub<br>Age (days)</th>'
+		echo '<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Last<br>Scrub<br>Duration</th>'
 		echo '</tr>'
-    } >> "${logfile}"
-done
+	} >> "${logfile}"
 
-# End of zpool status table
-echo '</table>' >> "${logfile}"
+
+	poolNum="0"
+	for pool in ${pools}; do
+
+		# zpool health summary
+		status="$(zpool list -H -o health "${pool}")"
+
+		# zpool fragment summary
+		frag="$(zpool list -H -p -o frag "${pool}" | tr -d %% | awk '{print $0 + 0}')"
+		size="$(zpool list -H -o size "${pool}")"
+		allocated="$(zpool list -H -o allocated "${pool}")"
+		free="$(zpool list -H -o free "${pool}")"
+
+		# Total all read, write, and checksum errors per pool
+		errors="$(zpool status "${pool}" | grep -E "(ONLINE|DEGRADED|FAULTED|UNAVAIL|REMOVED)[ \\t]+[0-9]+")"
+		readErrors="0"
+		for err in $(echo "${errors}" | awk '{print $3}'); do
+			if echo "${err}" | grep -E -q "[^0-9]+"; then
+				readErrors="1000"
+				break
+			fi
+			readErrors="$((readErrors + err))"
+		done
+		writeErrors="0"
+		for err in $(echo "${err}ors" | awk '{print $4}'); do
+			if echo "${err}" | grep -E -q "[^0-9]+"; then
+				writeErrors="1000"
+				break
+			fi
+			writeErrors="$((writeErrors + err))"
+		done
+		cksumErrors="0"
+		for err in $(echo "${err}ors" | awk '{print $5}'); do
+			if echo "${err}" | grep -E -q "[^0-9]+"; then
+				cksumErrors="1000"
+				break
+			fi
+			cksumErrors="$((cksumErrors + err))"
+		done
+		# Not sure why this changes values larger than 1000 to ">1K", but I guess it works, so I'm leaving it
+		if [ "${readErrors}" -gt 999 ]; then readErrors=">1K"; fi
+		if [ "${writeErrors}" -gt 999 ]; then writeErrors=">1K"; fi
+		if [ "${cksumErrors}" -gt 999 ]; then cksumErrors=">1K"; fi
+
+		# Get used capacity percentage of the zpool
+		used="$(zpool list -H -p -o capacity "${pool}")"
+
+		# Gather info from most recent scrub; values set to "N/A" initially and overwritten when (and if) it gathers scrub info
+		scrubRepBytes="N/A"
+		scrubErrors="N/A"
+		scrubAge="N/A"
+		scrubTime="N/A"
+		resilver=""
+
+		statusOutput="$(zpool status "${pool}")"
+		# normal status i.e. scrub
+		if [ "$(echo "${statusOutput}" | grep "scan:" | awk '{print $2" "$3}')" = "scrub repaired" ]; then
+			scrubRepBytes="$(echo "${statusOutput}" | grep "scan:" | awk '{gsub(/B/,"",$4); print $4}')"
+			scrubErrors="$(echo "${statusOutput}" | grep "scan:" | awk '{print $8}')"
+
+			# Convert time/datestamp format presented by zpool status, compare to current date, calculate scrub age
+			scrubDate="$(echo "${statusOutput}" | grep "scan:" | awk '{print $15"-"$12"-"$13"_"$14}')"
+			scrubTS="$(date -j -f '%Y-%b-%e_%H:%M:%S' "${scrubDate}" '+%s')"
+			currentTS="${runDate}"
+			scrubAge="$((((currentTS - scrubTS) + 43200) / 86400))"
+			scrubTime="$(echo "${statusOutput}" | grep "scan" | awk '{print $6}')"
+
+		# if status is resilvered
+		elif [ "$(echo "${statusOutput}" | grep "scan:" | awk '{print $2}')" = "resilvered" ]; then
+				resilver="<BR>Resilvered"
+				scrubRepBytes="$(echo "${statusOutput}" | grep "scan:" | awk '{print $3}')"
+				scrubErrors="$(echo "${statusOutput}" | grep "scan:" | awk '{print $9}')"
+
+				# Convert time/datestamp format presented by zpool status, compare to current date, calculate scrub age
+				scrubDate="$(echo "${statusOutput}" | grep "scan:" | awk '{print $16"-"$13"-"$14"_"$15}')"
+				scrubTS="$(date -j -f '%Y-%b-%e_%H:%M:%S' "${scrubDate}" '+%s')"
+				currentTS="${runDate}"
+				scrubAge="$((((currentTS - scrubTS) + 43200) / 86400))"
+				scrubTime="$(echo "${statusOutput}" | grep "scan:" | awk '{print $7}')"
+
+		# Check if resilver is in progress
+		elif [ "$(echo "${statusOutput}"| grep "scan:" | awk '{print $2}')" = "resilver" ]; then
+			scrubRepBytes="Resilver In Progress"
+			scrubAge="$(echo "${statusOutput}" | grep "resilvered," | awk '{print $3" done"}')"
+			if [ "$(echo "${statusOutput}" | grep "resilvered," | awk '{print $5}')" = "0" ]; then
+				scrubTime="$(echo "${statusOutput}" | grep "resilvered," | awk '{print $7"<br>to go"}')"
+			else
+				scrubTime="$(echo "${statusOutput}" | grep "resilvered," | awk '{print $5" "$6" "$7"<br>to go"}')"
+			fi
+
+		# Check if scrub is in progress
+		elif [ "$(echo "${statusOutput}"| grep "scan:" | awk '{print $4}')" = "progress" ]; then
+			scrubRepBytes="Scrub In Progress"
+			scrubErrors="$(echo "${statusOutput}" | grep "repaired," | awk '{print $1" repaired"}')"
+			scrubAge="$(echo "${statusOutput}" | grep "repaired," | awk '{print $3" done"}')"
+			if [ "$(echo "${statusOutput}" | grep "repaired," | awk '{print $5}')" = "0" ]; then
+				scrubTime="$(echo "${statusOutput}" | grep "repaired," | awk '{print $7"<br>to go"}')"
+			else
+				scrubTime="$(echo "${statusOutput}" | grep "repaired," | awk '{print $5" "$6" "$7"<br>to go"}')"
+			fi
+		fi
+
+		# Set row's background color; alternates between white and $altColor (light gray)
+		if [ "$((poolNum % 2))" = "1" ]; then
+			bgColor="#ffffff"
+		else
+			bgColor="$altColor"
+		fi
+		poolNum="$((poolNum + 1))"
+
+		# Set up conditions for warning or critical colors to be used in place of standard background colors
+		if [ ! "${status}" = "ONLINE" ]; then
+			statusColor="${warnColor}"
+		else
+			statusColor="${bgColor}"
+		fi
+		status+="${resilver}"
+
+		if [ ! "${readErrors}" = "0" ]; then
+			readErrorsColor="${warnColor}"
+		else
+			readErrorsColor="${bgColor}"
+		fi
+
+		if [ ! "${writeErrors}" = "0" ]; then
+			writeErrorsColor="${warnColor}"
+		else
+			writeErrorsColor="${bgColor}"
+		fi
+
+		if [ ! "${cksumErrors}" = "0" ]; then
+			cksumErrorsColor="${warnColor}"
+		else
+			cksumErrorsColor="${bgColor}"
+		fi
+
+		if [ "${used}" -gt "${usedWarn}" ]; then
+			usedColor="${warnColor}"
+		else
+			usedColor="${bgColor}"
+		fi
+
+		if [ ! "${scrubRepBytes}" = "N/A" ] && [ ! "${scrubRepBytes}" = "0" ] && [ ! "${scrubRepBytes}" = "0B" ]; then
+			scrubRepBytesColor="${warnColor}"
+		else
+			scrubRepBytesColor="${bgColor}"
+		fi
+
+		if [ ! "${scrubErrors}" = "N/A" ] && [ ! "${scrubErrors}" = "0" ]; then
+			scrubErrorsColor="${warnColor}"
+		else
+			scrubErrorsColor="${bgColor}"
+		fi
+
+		if [ "$(echo "$scrubAge" | awk '{print int($1)}')" -gt "${scrubAgeWarn}" ]; then
+			scrubAgeColor="${warnColor}"
+		else
+			scrubAgeColor="${bgColor}"
+		fi
+
+		{
+			# Use the information gathered above to write the date to the current table row
+			echo '<tr style="background-color:'"${bgColor}"'">'
+			echo '<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${pool}"'</td>'
+			echo '<td style="text-align:center; background-color:'"${statusColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${status}"'</td>'
+			echo '<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${size}"'</td>'
+			echo '<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${allocated}"'</td>'
+			echo '<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${free}"'</td>'
+			echo '<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${frag}"'%</td>'
+			echo '<td style="text-align:center; background-color:'"${usedColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${used}"'%</td>'
+			echo '<td style="text-align:center; background-color:'"${readErrorsColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${readErrors}"'</td>'
+			echo '<td style="text-align:center; background-color:'"${writeErrorsColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${writeErrors}"'</td>'
+			echo '<td style="text-align:center; background-color:'"${cksumErrorsColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${cksumErrors}"'</td>'
+			echo '<td style="text-align:center; background-color:'"${scrubRepBytesColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${scrubRepBytes}"'</td>'
+			echo '<td style="text-align:center; background-color:'"${scrubErrorsColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${scrubErrors}"'</td>'
+			echo '<td style="text-align:center; background-color:'"${scrubAgeColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${scrubAge}"'</td>'
+			echo '<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${scrubTime}"'</td>'
+			echo '</tr>'
+		} >> "${logfile}"
+	done
+
+	# End of zpool status table
+	echo '</table>' >> "${logfile}"
+}
+
+ZpoolSummary
 
 
 ### SMART status summary tables
