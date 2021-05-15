@@ -255,8 +255,12 @@ done
 
 
 
-###### Config backup (if enabled)
-if [ "$configBackup" = "true" ]; then
+function ConfigBackup () {
+    local tarfile
+    local fnconfigdest_version
+    local fnconfigdest_date
+    local filename
+
 
     # Set up file names, etc for later
     tarfile="/tmp/config_backup.tar.gz"
@@ -310,6 +314,11 @@ if [ "$configBackup" = "true" ]; then
         rm "/tmp/config_backup.sha256"
         rm "${tarfile}"
     fi
+}
+
+###### Config backup (if enabled)
+if [ "${configBackup}" = "true" ]; then
+	ConfigBackup
 else
     # Config backup disabled; set up for html-type content
     {
