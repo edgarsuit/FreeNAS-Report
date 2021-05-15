@@ -68,8 +68,9 @@
 #   - Initial release
 
 
-# Write out a default config file
-function rpConfig {
+# Functions
+function rpConfig () {
+	# Write out a default config file
 	tee > "${configFile}" <<"EOF"
 
 # Set this to 0 to enable
@@ -121,142 +122,6 @@ EOF
 	echo "Please edit the config file for your setup" >&2
 	exit 0
 }
-
-
-#
-# Main Script Starts Here
-#
-
-while getopts ":c:" OPTION; do
-	case "${OPTION}" in
-		c)
-			configFile="${OPTARG}"
-		;;
-		?)
-			# If an unknown flag is used (or -?):
-			echo "${0} {-c configFile}" >&2
-			exit 1
-		;;
-	esac
-done
-
-if [ -z "${configFile}" ]; then
-	echo "Please specify a config file location." >&2
-	exit 1
-elif [ ! -f "${configFile}" ]; then
-	rpConfig
-fi
-
-# Source external config file
-# shellcheck source=/dev/null
-. "${configFile}"
-
-# Check if needed software is installed.
-PATH="${PATH}:/usr/local/sbin:/usr/local/bin"
-commands=(
-hostname
-date
-sysctl
-sed
-grep
-awk
-zpool
-cut
-tr
-bc
-smartctl
-jq
-glabel
-sendmail
-)
-if [ "${configBackup}" = "true" ]; then
-commands+=(
-tar
-sqlite3
-md5
-sha256
-base64
-)
-fi
-if [ "${reportUPS}" = "true" ]; then
-commands+=(
-upsc
-)
-fi
-for command in "${commands[@]}"; do
-	if ! type "${command}" &> /dev/null; then
-		echo "${command} is missing, please install" >&2
-		exit 100
-	fi
-done
-
-
-# Do not run if the config file has not been edited.
-if [ ! "${defaultFile}" = "0" ]; then
-	echo "Please edit the config file for your setup" >&2
-	exit 1
-fi
-
-
-###### Auto-generated Parameters
-host="$(hostname -s)"
-runDate="$(date '+%s')"
-logfile="${logfileLocation}/$(date -r "${runDate}" '+%Y%m%d%H%M%S')_${logfileName}.tmp"
-subject="Status Report and Configuration Backup for ${host} - $(date -r "${runDate}" '+%Y-%m-%d %H:%M')"
-boundary="$(dbus-uuidgen)"
-messageid="$(dbus-uuidgen)"
-
-# Reorders the drives in ascending order
-drives=$(for drive in $(sysctl -n kern.disks | sed -e 's:nvd:nvme:g'); do
-    if smartctl -i "/dev/${drive}" | grep -q "SMART support is: Enabled"; then
-        printf "%s " "${drive}"
-	elif echo "${drive}" | grep -q "nvme"; then
-		printf "%s " "${drive}"
-    fi
-done | awk '{for (i=NF; i!=0 ; i--) print $i }')
-
-# Toggles the 'ssdExist' flag to true if SSDs are detected in order to add the summary table
-if [ "${includeSSD}" = "true" ]; then
-    for drive in ${drives}; do
-        if [ "$(smartctl -ij "/dev/${drive}" | jq -Mre '.rotation_rate | values')" = "0" ]; then
-            ssdExist="true"
-            break
-        else
-            ssdExist="false"
-        fi
-    done
-    if echo "${drives}" | grep -q "nvme"; then
-    	NVMeExist="true"
-    fi
-fi
-# Test to see if there are any HDDs
-for drive in ${drives}; do
-	if [ ! "$(smartctl -ij "/dev/${drive}" | jq -Mre '.rotation_rate | values')" = "0" ]; then
-		hddExist="true"
-		break
-	else
-		hddExist="false"
-	fi
-done
-
-# Get a list of pools
-pools="$(zpool list -H -o name)"
-
-
-
-###### Email pre-formatting
-### Set email headers
-{
-    echo "From: ${host} <root@$(hostname)>"
-    echo "To: ${email}"
-    echo "Subject: ${subject}"
-    echo "MIME-Version: 1.0"
-    echo 'Content-Type: multipart/mixed; boundary="'"${boundary}"'"'
-    echo "Date: $(date -Rr "${runDate}")"
-    echo "Message-Id: <${messageid}@${host}>"
-} > "${logfile}"
-
-
 
 function ConfigBackup () {
     local tarfile
@@ -318,21 +183,6 @@ function ConfigBackup () {
         rm "${tarfile}"
     fi
 }
-
-###### Config backup (if enabled)
-if [ "${configBackup}" = "true" ]; then
-	ConfigBackup
-else
-    # Config backup disabled; set up for html-type content
-    {
-        echo "--${boundary}"
-        echo "Content-Transfer-Encoding: 8bit"
-        echo -e "Content-Type: text/html; charset=utf-8\n"
-    } >> "${logfile}"
-fi
-
-
-###### Report Summary Section (html tables)
 
 function ZpoolSummary () {
 	local poolNum
@@ -574,12 +424,6 @@ function ZpoolSummary () {
 	echo '</table>' >> "${logfile}"
 }
 
-ZpoolSummary
-
-
-### SMART status summary tables
-
-
 # shellcheck disable=SC2155
 function NVMeSummary () {
 
@@ -798,12 +642,6 @@ function NVMeSummary () {
 		echo "</table>"
 	} >> "${logfile}"
 }
-
-
-if [ "${NVMeExist}" = "true" ]; then
-	NVMeSummary
-fi
-
 
 # shellcheck disable=SC2155
 function SSDSummary () {
@@ -1056,13 +894,6 @@ function SSDSummary () {
     } >> "${logfile}"
 }
 
-
-if [ "${ssdExist}" = "true" ]; then
-	SSDSummary
-fi
-
-
-
 # shellcheck disable=SC2155
 function HDDSummary () {
 	###### HDD SMART status summary table
@@ -1276,18 +1107,6 @@ function HDDSummary () {
 	} >> "${logfile}"
 }
 
-
-if [ "${hddExist}" = "true" ]; then
-	HDDSummary
-fi
-
-
-
-###### Detailed Report Section (monospace text)
-echo '<pre style="font-size:14px">' >> "${logfile}"
-
-
-### UPS status report
 function ReportUPS () {
     # Set to a value greater than zero to include all available UPSC
     # variables in the report:
@@ -1347,6 +1166,185 @@ function ReportUPS () {
     echo "</pre>" >> "${logfile}"
 }
 
+
+#
+# Main Script Starts Here
+#
+
+while getopts ":c:" OPTION; do
+	case "${OPTION}" in
+		c)
+			configFile="${OPTARG}"
+		;;
+		?)
+			# If an unknown flag is used (or -?):
+			echo "${0} {-c configFile}" >&2
+			exit 1
+		;;
+	esac
+done
+
+if [ -z "${configFile}" ]; then
+	echo "Please specify a config file location." >&2
+	exit 1
+elif [ ! -f "${configFile}" ]; then
+	rpConfig
+fi
+
+# Source external config file
+# shellcheck source=/dev/null
+. "${configFile}"
+
+# Check if needed software is installed.
+PATH="${PATH}:/usr/local/sbin:/usr/local/bin"
+commands=(
+hostname
+date
+sysctl
+sed
+grep
+awk
+zpool
+cut
+tr
+bc
+smartctl
+jq
+glabel
+sendmail
+)
+if [ "${configBackup}" = "true" ]; then
+commands+=(
+tar
+sqlite3
+md5
+sha256
+base64
+)
+fi
+if [ "${reportUPS}" = "true" ]; then
+commands+=(
+upsc
+)
+fi
+for command in "${commands[@]}"; do
+	if ! type "${command}" &> /dev/null; then
+		echo "${command} is missing, please install" >&2
+		exit 100
+	fi
+done
+
+
+# Do not run if the config file has not been edited.
+if [ ! "${defaultFile}" = "0" ]; then
+	echo "Please edit the config file for your setup" >&2
+	exit 1
+fi
+
+
+###### Auto-generated Parameters
+host="$(hostname -s)"
+runDate="$(date '+%s')"
+logfile="${logfileLocation}/$(date -r "${runDate}" '+%Y%m%d%H%M%S')_${logfileName}.tmp"
+subject="Status Report and Configuration Backup for ${host} - $(date -r "${runDate}" '+%Y-%m-%d %H:%M')"
+boundary="$(dbus-uuidgen)"
+messageid="$(dbus-uuidgen)"
+
+# Reorders the drives in ascending order
+drives=$(for drive in $(sysctl -n kern.disks | sed -e 's:nvd:nvme:g'); do
+    if smartctl -i "/dev/${drive}" | grep -q "SMART support is: Enabled"; then
+        printf "%s " "${drive}"
+	elif echo "${drive}" | grep -q "nvme"; then
+		printf "%s " "${drive}"
+    fi
+done | awk '{for (i=NF; i!=0 ; i--) print $i }')
+
+# Toggles the 'ssdExist' flag to true if SSDs are detected in order to add the summary table
+if [ "${includeSSD}" = "true" ]; then
+    for drive in ${drives}; do
+        if [ "$(smartctl -ij "/dev/${drive}" | jq -Mre '.rotation_rate | values')" = "0" ]; then
+            ssdExist="true"
+            break
+        else
+            ssdExist="false"
+        fi
+    done
+    if echo "${drives}" | grep -q "nvme"; then
+    	NVMeExist="true"
+    fi
+fi
+# Test to see if there are any HDDs
+for drive in ${drives}; do
+	if [ ! "$(smartctl -ij "/dev/${drive}" | jq -Mre '.rotation_rate | values')" = "0" ]; then
+		hddExist="true"
+		break
+	else
+		hddExist="false"
+	fi
+done
+
+# Get a list of pools
+pools="$(zpool list -H -o name)"
+
+
+
+###### Email pre-formatting
+### Set email headers
+{
+    echo "From: ${host} <root@$(hostname)>"
+    echo "To: ${email}"
+    echo "Subject: ${subject}"
+    echo "MIME-Version: 1.0"
+    echo 'Content-Type: multipart/mixed; boundary="'"${boundary}"'"'
+    echo "Date: $(date -Rr "${runDate}")"
+    echo "Message-Id: <${messageid}@${host}>"
+} > "${logfile}"
+
+
+
+
+###### Config backup (if enabled)
+if [ "${configBackup}" = "true" ]; then
+	ConfigBackup
+else
+    # Config backup disabled; set up for html-type content
+    {
+        echo "--${boundary}"
+        echo "Content-Transfer-Encoding: 8bit"
+        echo -e "Content-Type: text/html; charset=utf-8\n"
+    } >> "${logfile}"
+fi
+
+
+###### Report Summary Section (html tables)
+
+ZpoolSummary
+
+
+### SMART status summary tables
+
+
+if [ "${NVMeExist}" = "true" ]; then
+	NVMeSummary
+fi
+
+
+if [ "${ssdExist}" = "true" ]; then
+	SSDSummary
+fi
+
+
+if [ "${hddExist}" = "true" ]; then
+	HDDSummary
+fi
+
+
+
+###### Detailed Report Section (monospace text)
+echo '<pre style="font-size:14px">' >> "${logfile}"
+
+
+### UPS status report
 if [ "${reportUPS}" = "true" ]; then
 	ReportUPS
 fi
