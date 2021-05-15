@@ -1288,33 +1288,33 @@ echo '<pre style="font-size:14px">' >> "${logfile}"
 
 
 ### UPS status report
-if [ "${reportUPS}" = "true" ]; then
-
+function ReportUPS () {
     # Set to a value greater than zero to include all available UPSC
     # variables in the report:
-    senddetail="0"
+	local senddetail="0"
+	local ups
 
     # Get a list of all ups devices installed on the system:
-    upslist="$(upsc -l "${host}")"
+    local upslist="$(upsc -l "${host}")"
 
-    (
+    {
 		echo '<pre style="font-size:14px">'
 		echo '<b>########## UPS status report ##########</b>'
 			for ups in ${upslist}; do
 
-				ups_type="$(upsc "${ups}" device.type 2> /dev/null | tr '[:lower:]' '[:upper:]')"
-				ups_mfr="$(upsc "${ups}" ups.mfr 2> /dev/null)"
-				ups_model="$(upsc "${ups}" ups.model 2> /dev/null)"
-				ups_serial="$(upsc "${ups}" ups.serial 2> /dev/null)"
-				ups_status="$(upsc "${ups}" ups.status 2> /dev/null)"
-				ups_load="$(upsc "${ups}" ups.load 2> /dev/null)"
-				ups_realpower="$(upsc "${ups}" ups.realpower 2> /dev/null)"
-				ups_realpowernominal="$(upsc "${ups}" ups.realpower.nominal 2> /dev/null)"
-				ups_batterycharge="$(upsc "${ups}" battery.charge 2> /dev/null)"
-				ups_batteryruntime="$(upsc "${ups}" battery.runtime 2> /dev/null)"
-				ups_batteryvoltage="$(upsc "${ups}" battery.voltage 2> /dev/null)"
-				ups_inputvoltage="$(upsc "${ups}" input.voltage 2> /dev/null)"
-				ups_outputvoltage="$(upsc "${ups}" output.voltage 2> /dev/null)"
+				local ups_type="$(upsc "${ups}" device.type 2> /dev/null | tr '[:lower:]' '[:upper:]')"
+				local ups_mfr="$(upsc "${ups}" ups.mfr 2> /dev/null)"
+				local ups_model="$(upsc "${ups}" ups.model 2> /dev/null)"
+				local ups_serial="$(upsc "${ups}" ups.serial 2> /dev/null)"
+				local ups_status="$(upsc "${ups}" ups.status 2> /dev/null)"
+				local ups_load="$(upsc "${ups}" ups.load 2> /dev/null)"
+				local ups_realpower="$(upsc "${ups}" ups.realpower 2> /dev/null)"
+				local ups_realpowernominal="$(upsc "${ups}" ups.realpower.nominal 2> /dev/null)"
+				local ups_batterycharge="$(upsc "${ups}" battery.charge 2> /dev/null)"
+				local ups_batteryruntime="$(upsc "${ups}" battery.runtime 2> /dev/null)"
+				local ups_batteryvoltage="$(upsc "${ups}" battery.voltage 2> /dev/null)"
+				local ups_inputvoltage="$(upsc "${ups}" input.voltage 2> /dev/null)"
+				local ups_outputvoltage="$(upsc "${ups}" output.voltage 2> /dev/null)"
 
 				printf "=== %s %s, model %s, serial number %s\n\n" "${ups_mfr}" "${ups_type}" "${ups_model}" "${ups_serial} ==="
 				echo "Name: ${ups}"
@@ -1342,9 +1342,13 @@ if [ "${reportUPS}" = "true" ]; then
 					echo ""
 				fi
 			done
-    ) >> "${logfile}"
+    } >> "${logfile}"
 
     echo "</pre>" >> "${logfile}"
+}
+
+if [ "${reportUPS}" = "true" ]; then
+	ReportUPS
 fi
 
 
