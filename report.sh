@@ -1127,9 +1127,10 @@ function ReportUPS () {
     # variables in the report:
 	local senddetail="0"
 	local ups
+    local upslist
 
     # Get a list of all ups devices installed on the system:
-    local upslist="$(upsc -l "${host}")"
+    readarray -t "upslist" <<< "$(upsc -l "${host}")"
 
     {
 		echo '<b>########## UPS status report ##########</b>'
@@ -1267,13 +1268,13 @@ boundary="$(dbus-uuidgen)"
 messageid="$(dbus-uuidgen)"
 
 # Reorders the drives in ascending order
-drives=$(for drive in $(sysctl -n kern.disks | sed -e 's:nvd:nvme:g'); do
-    if smartctl -i "/dev/${drive}" | grep -q "SMART support is: Enabled"; then
-        printf "%s " "${drive}"
+readarray -t "drives" <<< "$(for drive in $(sysctl -n kern.disks | sed -e 's:nvd:nvme:g'); do
+	if smartctl -i "/dev/${drive}" | grep -q "SMART support is: Enabled"; then
+		printf "%s " "${drive}"
 	elif echo "${drive}" | grep -q "nvme"; then
 		printf "%s " "${drive}"
-    fi
-done | awk '{for (i=NF; i!=0 ; i--) print $i }')
+	fi
+done | awk '{for (i=NF; i!=0 ; i--) print $i }')"
 
 # Toggles the 'ssdExist' flag to true if SSDs are detected in order to add the summary table
 if [ "${includeSSD}" = "true" ]; then
@@ -1300,7 +1301,7 @@ for drive in "${drives[@]}"; do
 done
 
 # Get a list of pools
-pools="$(zpool list -H -o name)"
+readarray -t "pools" <<< "$(zpool list -H -o name)"
 
 
 
