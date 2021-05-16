@@ -3,7 +3,7 @@ Original Script By: joeschmuck<br>
 Modified By: bidelu0hm, melp, fohlsso2, onlinepcwizard, ninpucho, isentropik, rotx, dak180<br>
 Last Edited By: dak180
 
-Preview of the output here: https://i.imgur.com/K38T1u8.png<br>
+Preview of the output here: https://i.imgur.com/jKwraw4.png<br>
 When a resilver is in progress: https://i.imgur.com/CUNUZ7r.png<br>
 After the resilver is done: https://i.imgur.com/I43MLLf.png<br>
 When a scrub is in progess: https://i.imgur.com/YGmvZT4.png<br><br>
