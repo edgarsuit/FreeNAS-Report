@@ -1,18 +1,28 @@
-# ZPool, SMART, and UPS Status Report with FreeNAS Config Backup
+# ZPool, SMART, and UPS Status Report with TrueNAS Config Backup
 Original Script By: joeschmuck<br>
-Modified By: bidelu0hm, melp, fohlsso2, onlinepcwizard, ninpucho, isentropik<br>
-Last Edited By: aserrallerios
+Modified By: bidelu0hm, melp, fohlsso2, onlinepcwizard, ninpucho, isentropik, rotx, dak180<br>
+Last Edited By: dak180
 
 Preview of the output here: https://i.imgur.com/K38T1u8.png<br>
 When a resilver is in progress: https://i.imgur.com/CUNUZ7r.png<br>
 After the resilver is done: https://i.imgur.com/I43MLLf.png<br>
 When a scrub is in progess: https://i.imgur.com/YGmvZT4.png<br><br>
 
-**At a minimum, enter email address in user-definable parameter section. The default is set to 'root' as I assume that the root email was set in FreeNAS. Feel free to edit other user parameters as needed. Backup has been enabled by default so if it's not required please set to false.**<br><br>
+**At a minimum, enter email address and set defaultFile to 0 in the generated config file. Feel free to edit other user parameters as needed. Backup has been disabled by default so if it is required please set to true.**<br><br>
 
-**Current Version: v1.6**
+**Current Version: v1.7**
 
 **Changelog:**
+
+*v1.7* (dak180)
+ - Refactor to reduce dependence on awk
+ - Use a separate config file
+ - Add support for conveyance test
+
+*v1.6.5* (rotx)
+ - HTML boundary fix, proper message ids, support for dma mailer
+ - Better support for NVMe and SSD
+ - Support for new smartmon-tools
 
 *v1.6* (isentropik)
  - Actually fixed the broken borders in the tables.
@@ -67,6 +77,3 @@ When a scrub is in progess: https://i.imgur.com/YGmvZT4.png<br><br>
 
 *v1.0*
 - Initial release
-
-**TODO**
-- Add support for conveyance test

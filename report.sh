@@ -5,7 +5,7 @@
 
 ###### ZPool, SMART, and UPS Status Report with TrueNAS Config Backup
 ### Original Script By: joeschmuck
-### Modified By: bidelu0hm, melp, fohlsso2, onlinepcwizard, ninpucho, isentropik
+### Modified By: bidelu0hm, melp, fohlsso2, onlinepcwizard, ninpucho, isentropik, dak180
 ### Last Edited By: dak180
 
 ### At a minimum, enter email address and set defaultFile to 0 in the config file.
