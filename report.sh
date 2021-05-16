@@ -1132,7 +1132,6 @@ function ReportUPS () {
     local upslist="$(upsc -l "${host}")"
 
     {
-		echo '<pre style="font-size:14px">'
 		echo '<b>########## UPS status report ##########</b>'
 			for ups in "${upslist[@]}"; do
 
@@ -1178,7 +1177,7 @@ function ReportUPS () {
 			done
     } >> "${logfile}"
 
-    echo "</pre>" >> "${logfile}"
+    echo "<br><br>" >> "${logfile}"
 }
 
 
