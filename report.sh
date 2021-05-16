@@ -18,6 +18,7 @@
 # v1.7
 #   - Refactor to reduce dependence on awk
 #   - Use a separate config file
+#   - Add support for conveyance test
 # v1.6.5
 #   - HTML boundary fix, proper message ids, support for dma mailer
 #   - Better support for NVMe and SSD
@@ -1402,6 +1403,7 @@ for drive in "${drives[@]}"; do
             smartctl -l selftest "/dev/${drive}" | grep 'Num' | cut -c6- | head -1
             smartctl -l selftest "/dev/${drive}" | grep 'Extended' | cut -c6- | head -1
             smartctl -l selftest "/dev/${drive}" | grep 'Short' | cut -c6- | head -1
+            smartctl -l selftest "/dev/${drive}" | grep 'Conveyance' | cut -c6- | head -1
             echo '<br><br>'
         } >> "${logfile}"
 

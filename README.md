@@ -17,6 +17,7 @@ When a scrub is in progess: https://i.imgur.com/YGmvZT4.png<br><br>
 *v1.7* (dak180)
  - Refactor to reduce dependence on awk
  - Use a separate config file
+ - Add support for conveyance test
 
 *v1.6.5* (rotx)
  - HTML boundary fix, proper message ids, support for dma mailer
