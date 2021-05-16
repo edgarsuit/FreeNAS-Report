@@ -242,7 +242,7 @@ function ZpoolSummary () {
 
 
 	poolNum="0"
-	for pool in ${pools}; do
+	for pool in "${pools[@]}"; do
 
 		# zpool health summary
 		status="$(zpool list -H -o health "${pool}")"
@@ -487,7 +487,7 @@ function NVMeSummary () {
 
 	local drive
 	local altRow="false"
-	for drive in ${drives}; do
+	for drive in "${drives[@]}"; do
 		if echo "${drive}" | grep -q "nvme"; then
 			# For each drive detected, run "smartctl -Aij" and parse its output.
 			# Start by parsing variables used in other parts of the script.
@@ -689,7 +689,7 @@ function SSDSummary () {
 
 	local drive
 	local altRow="false"
-    for drive in ${drives}; do
+    for drive in "${drives[@]}"; do
         if [ "$(smartctl -ij "/dev/${drive}" | jq -Mre '.rotation_rate | values')" = "0" ]; then
 			# For each drive detected, run "smartctl -Aijl selftest" and parse its output.
 			# Start by parsing out the variables used in other parts of the script.
@@ -940,7 +940,7 @@ function HDDSummary () {
 
 	local drive
 	local altRow="false"
-	for drive in ${drives}; do
+	for drive in "${drives[@]}"; do
 		if smartctl -i "/dev/${drive}" | grep -q "SMART support is: Enabled" && [ ! "$(smartctl -ij "/dev/${drive}" | jq -Mre '.rotation_rate | values')" = "0" ]; then
 			# For each drive detected, run "smartctl -Aijl selftest" and parse its output.
 			# After parsing the output, compute other values (last test's age, on time in YY-MM-DD-HH).
@@ -1121,6 +1121,7 @@ function HDDSummary () {
 	} >> "${logfile}"
 }
 
+# shellcheck disable=SC2155
 function ReportUPS () {
     # Set to a value greater than zero to include all available UPSC
     # variables in the report:
@@ -1133,7 +1134,7 @@ function ReportUPS () {
     {
 		echo '<pre style="font-size:14px">'
 		echo '<b>########## UPS status report ##########</b>'
-			for ups in ${upslist}; do
+			for ups in "${upslist[@]}"; do
 
 				local ups_type="$(upsc "${ups}" device.type 2> /dev/null | tr '[:lower:]' '[:upper:]')"
 				local ups_mfr="$(upsc "${ups}" ups.mfr 2> /dev/null)"
@@ -1277,7 +1278,7 @@ done | awk '{for (i=NF; i!=0 ; i--) print $i }')
 
 # Toggles the 'ssdExist' flag to true if SSDs are detected in order to add the summary table
 if [ "${includeSSD}" = "true" ]; then
-    for drive in ${drives}; do
+    for drive in "${drives[@]}"; do
         if [ "$(smartctl -ij "/dev/${drive}" | jq -Mre '.rotation_rate | values')" = "0" ]; then
             ssdExist="true"
             break
@@ -1290,7 +1291,7 @@ if [ "${includeSSD}" = "true" ]; then
     fi
 fi
 # Test to see if there are any HDDs
-for drive in ${drives}; do
+for drive in "${drives[@]}"; do
 	if [ ! "$(smartctl -ij "/dev/${drive}" | jq -Mre '.rotation_rate | values')" = "0" ]; then
 		hddExist="true"
 		break
@@ -1375,7 +1376,7 @@ fi
 
 
 ### Zpool status for each pool
-for pool in ${pools}; do
+for pool in "${pools[@]}"; do
     {
         # Create a simple header and drop the output of zpool status -v
         echo '<b>########## ZPool status report for '"${pool}"' ##########</b>'
@@ -1386,7 +1387,7 @@ done
 
 
 ### SMART status for each drive
-for drive in ${drives}; do
+for drive in "${drives[@]}"; do
     if smartctl -i "/dev/${drive}" | grep -q "SMART support is: Enabled"; then
         # Gather brand and serial number of each drive
         brand="$(smartctl -ij "/dev/${drive}" | jq -Mre '.model_family | values')"
