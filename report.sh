@@ -213,6 +213,7 @@ function ZpoolSummary () {
 	local scrubRepBytesColor
 	local scrubErrorsColor
 	local scrubAgeColor
+	local multiDay
 
 
 	### zpool status summary table
@@ -296,15 +297,28 @@ function ZpoolSummary () {
 		statusOutput="$(zpool status "${pool}")"
 		# normal status i.e. scrub
 		if [ "$(echo "${statusOutput}" | grep "scan:" | awk '{print $2" "$3}')" = "scrub repaired" ]; then
+			multiDay="$(echo "${statusOutput}" | grep "scan" | grep -c "days")"
 			scrubRepBytes="$(echo "${statusOutput}" | grep "scan:" | awk '{gsub(/B/,"",$4); print $4}')"
-			scrubErrors="$(echo "${statusOutput}" | grep "scan:" | awk '{print $8}')"
+			if [ "${multiDay}" -ge 1 ] ; then
+				scrubErrors="$(echo "${statusOutput}" | grep "scan:" | awk '{print $10}')"
+			else
+				scrubErrors="$(echo "${statusOutput}" | grep "scan:" | awk '{print $8}')"
+			fi
 
 			# Convert time/datestamp format presented by zpool status, compare to current date, calculate scrub age
-			scrubDate="$(echo "${statusOutput}" | grep "scan:" | awk '{print $15"-"$12"-"$13"_"$14}')"
+			if [ "${multiDay}" -ge 1 ] ; then
+				scrubDate="$(echo "${statusOutput}" | grep "scan:" | awk '{print $17"-"$14"-"$15"_"$16}')"
+			else
+				scrubDate="$(echo "${statusOutput}" | grep "scan:" | awk '{print $15"-"$12"-"$13"_"$14}')"
+			fi
 			scrubTS="$(date -j -f '%Y-%b-%e_%H:%M:%S' "${scrubDate}" '+%s')"
 			currentTS="${runDate}"
 			scrubAge="$((((currentTS - scrubTS) + 43200) / 86400))"
-			scrubTime="$(echo "${statusOutput}" | grep "scan" | awk '{print $6}')"
+			if [ "${multiDay}" -ge 1 ] ; then
+				scrubTime="$(echo "${statusOutput}" | grep "scan" | awk '{print $6" "$7" "$8}')"
+			else
+				scrubTime="$(echo "${statusOutput}" | grep "scan" | awk '{print $6}')"
+			fi
 
 		# if status is resilvered
 		elif [ "$(echo "${statusOutput}" | grep "scan:" | awk '{print $2}')" = "resilvered" ]; then
