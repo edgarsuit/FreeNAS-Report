@@ -1211,6 +1211,8 @@ bc
 smartctl
 jq
 glabel
+head
+tail
 sendmail
 )
 if [ "${configBackup}" = "true" ]; then
