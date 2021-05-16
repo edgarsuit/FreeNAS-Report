@@ -1399,8 +1399,9 @@ for drive in "${drives[@]}"; do
             # Create a simple header and drop the output of some basic smartctl commands
             echo '<b>########## SMART status report for '"${drive}"' drive ('"${brand}: ${serial}"') ##########</b>'
             smartctl -H -A -l error "/dev/${drive}"
-            smartctl -l selftest "/dev/${drive}" | grep 'Extended \\|Num' | cut -c6- | head -2
-            smartctl -l selftest "/dev/${drive}" | grep 'Short \\|Num' | cut -c6- | head -2 | tail -n -1
+            smartctl -l selftest "/dev/${drive}" | grep 'Num' | cut -c6- | head -1
+            smartctl -l selftest "/dev/${drive}" | grep 'Extended' | cut -c6- | head -1
+            smartctl -l selftest "/dev/${drive}" | grep 'Short' | cut -c6- | head -1
             echo '<br><br>'
         } >> "${logfile}"
 
