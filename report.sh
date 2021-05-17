@@ -1269,6 +1269,7 @@ boundary="$(dbus-uuidgen)"
 messageid="$(dbus-uuidgen)"
 
 # Reorders the drives in ascending order
+# FixMe: smart support flag is not yet implemented in smartctl json output.
 readarray -t "drives" <<< "$(for drive in $(sysctl -n kern.disks | sed -e 's:nvd:nvme:g'); do
 	if smartctl -i "/dev/${drive}" | grep -q "SMART support is: Enabled"; then
 		printf "%s " "${drive}"
@@ -1389,10 +1390,10 @@ done
 
 ### SMART status for each drive
 for drive in "${drives[@]}"; do
-    smartOut="$(smartctl --json=u -i "/dev/${drive}")"
+    smartOut="$(smartctl --json=u -i "/dev/${drive}")" # FixMe: smart support flag is not yet implemented in smartctl json output.
     smartTestOut="$(smartctl -l selftest "/dev/${drive}")"
 
-    if echo "${smartOut}" | grep -q "SMART support is: Enabled"; then
+    if echo "${smartOut}" | grep -q "SMART support is: Enabled"; then # FixMe: smart support flag is not yet implemented in smartctl json output.
         # Gather brand and serial number of each drive
         brand="$(echo "${smartOut}" | jq -Mre '.model_family | values')"
         if [ -z "${brand}" ]; then
