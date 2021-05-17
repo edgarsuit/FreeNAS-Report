@@ -1389,32 +1389,35 @@ done
 
 ### SMART status for each drive
 for drive in "${drives[@]}"; do
-    if smartctl -i "/dev/${drive}" | grep -q "SMART support is: Enabled"; then
+    smartOut="$(smartctl --json=u -i "/dev/${drive}")"
+    smartTestOut="$(smartctl -l selftest "/dev/${drive}")"
+
+    if echo "${smartOut}" | grep -q "SMART support is: Enabled"; then
         # Gather brand and serial number of each drive
-        brand="$(smartctl -ij "/dev/${drive}" | jq -Mre '.model_family | values')"
+        brand="$(echo "${smartOut}" | jq -Mre '.model_family | values')"
         if [ -z "${brand}" ]; then
-            brand="$(smartctl -ij "/dev/${drive}" | jq -Mre '.model_name | values')";
+            brand="$(echo "${smartOut}" | jq -Mre '.model_name | values')";
         fi
-        serial="$(smartctl -ij "/dev/${drive}" | jq -Mre '.serial_number | values')"
+        serial="$(echo "${smartOut}" | jq -Mre '.serial_number | values')"
         {
             # Create a simple header and drop the output of some basic smartctl commands
             echo '<b>########## SMART status report for '"${drive}"' drive ('"${brand}: ${serial}"') ##########</b>'
             smartctl -H -A -l error "/dev/${drive}"
-            smartctl -l selftest "/dev/${drive}" | grep 'Num' | cut -c6- | head -1
-            smartctl -l selftest "/dev/${drive}" | grep 'Extended' | cut -c6- | head -1
-            smartctl -l selftest "/dev/${drive}" | grep 'Short' | cut -c6- | head -1
-            smartctl -l selftest "/dev/${drive}" | grep 'Conveyance' | cut -c6- | head -1
+            echo "${smartTestOut}" | grep 'Num' | cut -c6- | head -1
+            echo "${smartTestOut}" | grep 'Extended' | cut -c6- | head -1
+            echo "${smartTestOut}" | grep 'Short' | cut -c6- | head -1
+            echo "${smartTestOut}" | grep 'Conveyance' | cut -c6- | head -1
             echo '<br><br>'
         } >> "${logfile}"
 
     elif echo "${drive}" | grep -q "nvme"; then
+    	# NVMe drives are handled separately because self tests are not yet supported.
         # Gather brand and serial number of each drive
-		nvmeSmartOut="$(smartctl -aj "/dev/${drive}")"
-		brand="$(echo "${nvmeSmartOut}" | jq -Mre '.model_family | values')"
+		brand="$(echo "${smartOut}" | jq -Mre '.model_family | values')"
         if [ -z "${brand}" ]; then
-            brand="$(echo "${nvmeSmartOut}" | jq -Mre '.model_name | values')";
+            brand="$(echo "${smartOut}" | jq -Mre '.model_name | values')";
         fi
-		serial="$(echo "${nvmeSmartOut}" | jq -Mre '.serial_number | values')"
+		serial="$(echo "${smartOut}" | jq -Mre '.serial_number | values')"
 		{
 			# Create a simple header and drop the output of some basic smartctl commands
             echo '<b>########## SMART status report for '"${drive}"' drive ('"${brand}: ${serial}"') ##########</b>'
