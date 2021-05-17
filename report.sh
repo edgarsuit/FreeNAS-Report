@@ -186,7 +186,6 @@ function ConfigBackup () {
 }
 
 function ZpoolSummary () {
-	local poolNum
 	local pool
 	local status
 	local frag
@@ -215,6 +214,7 @@ function ZpoolSummary () {
 	local scrubErrorsColor
 	local scrubAgeColor
 	local multiDay
+	local altRow
 
 
 	### zpool status summary table
@@ -242,7 +242,7 @@ function ZpoolSummary () {
 	} >> "${logfile}"
 
 
-	poolNum="0"
+	altRow="false"
 	for pool in "${pools[@]}"; do
 
 		# zpool health summary
@@ -323,16 +323,16 @@ function ZpoolSummary () {
 
 		# if status is resilvered
 		elif [ "$(echo "${statusOutput}" | grep "scan:" | awk '{print $2}')" = "resilvered" ]; then
-				resilver="<BR>Resilvered"
-				scrubRepBytes="$(echo "${statusOutput}" | grep "scan:" | awk '{print $3}')"
-				scrubErrors="$(echo "${statusOutput}" | grep "scan:" | awk '{print $9}')"
+			resilver="<BR>Resilvered"
+			scrubRepBytes="$(echo "${statusOutput}" | grep "scan:" | awk '{print $3}')"
+			scrubErrors="$(echo "${statusOutput}" | grep "scan:" | awk '{print $9}')"
 
-				# Convert time/datestamp format presented by zpool status, compare to current date, calculate scrub age
-				scrubDate="$(echo "${statusOutput}" | grep "scan:" | awk '{print $16"-"$13"-"$14"_"$15}')"
-				scrubTS="$(date -j -f '%Y-%b-%e_%H:%M:%S' "${scrubDate}" '+%s')"
-				currentTS="${runDate}"
-				scrubAge="$((((currentTS - scrubTS) + 43200) / 86400))"
-				scrubTime="$(echo "${statusOutput}" | grep "scan:" | awk '{print $7}')"
+			# Convert time/datestamp format presented by zpool status, compare to current date, calculate scrub age
+			scrubDate="$(echo "${statusOutput}" | grep "scan:" | awk '{print $16"-"$13"-"$14"_"$15}')"
+			scrubTS="$(date -j -f '%Y-%b-%e_%H:%M:%S' "${scrubDate}" '+%s')"
+			currentTS="${runDate}"
+			scrubAge="$((((currentTS - scrubTS) + 43200) / 86400))"
+			scrubTime="$(echo "${statusOutput}" | grep "scan:" | awk '{print $7}')"
 
 		# Check if resilver is in progress
 		elif [ "$(echo "${statusOutput}"| grep "scan:" | awk '{print $2}')" = "resilver" ]; then
@@ -356,13 +356,14 @@ function ZpoolSummary () {
 			fi
 		fi
 
-		# Set row's background color; alternates between white and $altColor (light gray)
-		if [ "$((poolNum % 2))" = "1" ]; then
-			bgColor="#ffffff"
+		# Set the row background color
+		if [ "${altRow}" = "false" ]; then
+			local bgColor="#ffffff"
+			altRow="true"
 		else
-			bgColor="$altColor"
+			local bgColor="${altColor}"
+			altRow="false"
 		fi
-		poolNum="$((poolNum + 1))"
 
 		# Set up conditions for warning or critical colors to be used in place of standard background colors
 		if [ ! "${status}" = "ONLINE" ]; then
