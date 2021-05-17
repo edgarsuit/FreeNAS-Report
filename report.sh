@@ -490,14 +490,14 @@ function NVMeSummary () {
 	local altRow="false"
 	for drive in "${drives[@]}"; do
 		if echo "${drive}" | grep -q "nvme"; then
-			# For each drive detected, run "smartctl -Aij" and parse its output.
+			# For each drive detected, run "smartctl -AHij" and parse its output.
 			# Start by parsing variables used in other parts of the script.
 			# After parsing the output, compute other values (last test's age, on time in YY-MM-DD-HH).
 			# After these computations, determine the row's background color (alternating as above, subbing in other colors from the palate as needed).
 			# Finally, print the HTML code for the current row of the table with all the gathered data.
 
 			# Get drive attributes
-			local nvmeSmarOut="$(smartctl -Aij "/dev/${drive}")"
+			local nvmeSmarOut="$(smartctl -AHij "/dev/${drive}")"
 
 			local model="$(echo "${nvmeSmarOut}" | jq -Mre '.model_name | values')"
 			local serial="$(echo "${nvmeSmarOut}" | jq -Mre '.serial_number | values')"
@@ -512,8 +512,13 @@ function NVMeSummary () {
 			local wearLeveling="$(echo "${nvmeSmarOut}" | jq -Mre '.nvme_smart_health_information_log.available_spare | values')"
 			local totalLBA="$(echo "${nvmeSmarOut}" | jq -Mre '.nvme_smart_health_information_log.data_units_written | values')"
 
-			local capacity="$(smartctl -i "/dev/${drive}" | grep '^Namespace 1 Size' | tr -s ' ' | cut -d ' ' -sf '5,6')"
-			local smartStatus="$(smartctl -H "/dev/${drive}" | grep "SMART overall-health" | cut -d ' ' -sf 6)"
+			local capacity="$(smartctl -i "/dev/${drive}" | grep '^Namespace 1 Size' | tr -s ' ' | cut -d ' ' -sf '5,6')" # FixMe: have not yet figured out how to best calculate this from json values
+
+			if [ "$(echo "${nvmeSmarOut}" | jq -Mre '.smart_status.passed | values')" = "true" ]; then
+				local smartStatus="PASSED"
+			else
+				local smartStatus="FAILED"
+			fi
 
 			# Get more useful times from hours
 			local testAge="$(bc <<< "(${onHours} - (${onHours} - 2) ) / 24")" # ${lastTestHours}
@@ -691,14 +696,14 @@ function SSDSummary () {
 	local drive
 	local altRow="false"
     for drive in "${drives[@]}"; do
-        if [ "$(smartctl -ij "/dev/${drive}" | jq -Mre '.rotation_rate | values')" = "0" ]; then
-			# For each drive detected, run "smartctl -Aijl selftest" and parse its output.
+    	local ssdInfoSmrt="$(smartctl -AHijl selftest "/dev/${drive}")"
+    	local rotTst="$(echo "${ssdInfoSmrt}" | jq -Mre '.rotation_rate | values')"
+        if [ "${rotTst}" = "0" ]; then
+			# For each drive detected, run "smartctl -AHijl selftest" and parse its output.
 			# Start by parsing out the variables used in other parts of the script.
 			# After parsing the output, compute other values (last test's age, on time in YY-MM-DD-HH).
 			# After these computations, determine the row's background color (alternating as above, subbing in other colors from the palate as needed).
 			# Finally, print the HTML code for the current row of the table with all the gathered data.
-			local ssdInfoSmrt="$(smartctl -Aijl selftest "/dev/${drive}")"
-
 			local device="${drive}"
 
 			# Available if any tests have completed
@@ -706,10 +711,17 @@ function SSDSummary () {
 			local lastTestType="$(echo "${ssdInfoSmrt}" | jq -Mre '.ata_smart_self_test_log.standard.table[0].type.string | values')"
 
 			# Available for any drive smartd knows about
-			local smartStatus="$(smartctl -H "/dev/${drive}" | grep 'SMART overall-health' | cut -d ' ' -sf 6)"
+			if [ "$(echo "${ssdInfoSmrt}" | jq -Mre '.smart_status.passed | values')" = "true" ]; then
+				local smartStatus="PASSED"
+			else
+				local smartStatus="FAILED"
+			fi
+
 			local model="$(echo "${ssdInfoSmrt}" | jq -Mre '.model_name | values')"
 			local serial="$(echo "${ssdInfoSmrt}" | jq -Mre '.serial_number | values')"
-			local capacity="$(smartctl -i "/dev/${drive}" | grep '^User Capacity:' | tr -s ' ' | cut -d ' ' -sf '5,6')"
+
+			local capacity="$(smartctl -i "/dev/${drive}" | grep '^User Capacity:' | tr -s ' ' | cut -d ' ' -sf '5,6')" # FixMe: have not yet figured out how to best calculate this from json values
+
 			local temp="$(echo "${ssdInfoSmrt}"| jq -Mre '.temperature.current | values')"
 			local onHours="$(echo "${ssdInfoSmrt}" | jq -Mre '.power_on_time.hours | values')"
 			local startStop="$(echo "${ssdInfoSmrt}" | jq -Mre '.power_cycle_count | values')"
@@ -942,13 +954,13 @@ function HDDSummary () {
 	local drive
 	local altRow="false"
 	for drive in "${drives[@]}"; do
-		if smartctl -i "/dev/${drive}" | grep -q "SMART support is: Enabled" && [ ! "$(smartctl -ij "/dev/${drive}" | jq -Mre '.rotation_rate | values')" = "0" ]; then
-			# For each drive detected, run "smartctl -Aijl selftest" and parse its output.
+		local hddInfoSmrt="$(smartctl -AHijl selftest "/dev/${drive}")"
+		local rotTst="$(echo "${hddInfoSmrt}" | jq -Mre '.rotation_rate | values')"
+		if [ ! "${rotTst:="0"}" = "0" ]; then
+			# For each drive detected, run "smartctl -AHijl selftest" and parse its output.
 			# After parsing the output, compute other values (last test's age, on time in YY-MM-DD-HH).
 			# After these computations, determine the row's background color (alternating as above, subbing in other colors from the palate as needed).
 			# Finally, print the HTML code for the current row of the table with all the gathered data.
-
-			local hddInfoSmrt="$(smartctl -Aijl selftest "/dev/${drive}")"
 
 			local device="${drive}"
 
@@ -957,11 +969,18 @@ function HDDSummary () {
 			local lastTestType="$(echo "${hddInfoSmrt}" | jq -Mre '.ata_smart_self_test_log.standard.table[0].type.string | values')"
 
 			# Available for any drive smartd knows about
-			local smartStatus="$(smartctl -H "/dev/${drive}" | grep 'SMART overall-health' | cut -d ' ' -sf 6)"
+			if [ "$(echo "${hddInfoSmrt}" | jq -Mre '.smart_status.passed | values')" = "true" ]; then
+				local smartStatus="PASSED"
+			else
+				local smartStatus="FAILED"
+			fi
+
 			local model="$(echo "${hddInfoSmrt}" | jq -Mre '.model_name | values')"
 			local serial="$(echo "${hddInfoSmrt}" | jq -Mre '.serial_number | values')"
 			local rpm="$(echo "${hddInfoSmrt}" | jq -Mre '.rotation_rate | values')"
-			local capacity="$(smartctl -i "/dev/${drive}" | grep '^User Capacity:' | tr -s ' ' | cut -d ' ' -sf '5,6')"
+
+			local capacity="$(smartctl -i "/dev/${drive}" | grep '^User Capacity:' | tr -s ' ' | cut -d ' ' -sf '5,6')" # FixMe: have not yet figured out how to best calculate this from json values
+
 			local temp="$(echo "${hddInfoSmrt}"| jq -Mre '.temperature.current | values')"
 			local onHours="$(echo "${hddInfoSmrt}" | jq -Mre '.power_on_time.hours | values')"
 			local startStop="$(echo "${hddInfoSmrt}" | jq -Mre '.power_cycle_count | values')"
