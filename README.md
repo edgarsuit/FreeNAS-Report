@@ -12,6 +12,7 @@ Preview of the output here: http://i.imgur.com/t9Mtqyt.png
 *v1.4:*
 - Added gpg Encryption Option
 - Reorganized User Input Sections
+- To Decrypt your file: gpg --output "name you want output to be".tar.gz --decrypt "Encrypted File.tar.gz.gpg"
 
 *v1.3:*
 - Added scrub duration column
