@@ -11,6 +11,7 @@
 # v1.4:
 #   - Added gpg Encryption Option
 #   - Reorganized User Input Sections
+#   - To Decrypt your file: gpg --output "name you want output to be".tar.gz --decrypt "Encrypted File.tar.gz.gpg"
 # v1.3:
 #   - Added scrub duration column
 #   - Fixed for FreeNAS 11.1 (thanks reven!)
