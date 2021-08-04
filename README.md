@@ -1,13 +1,18 @@
 # ZPool & SMART status report with FreeNAS config backup
-Original script by joeschmuck, modified by Bidelu0hm, then by melp
+Original script by joeschmuck, modified by Bidelu0hm, modified by melp, then by LIGISTX
 
 Preview of the output here: http://i.imgur.com/t9Mtqyt.png
 
 **At a minimum, you will need to enter your email address in user-definable parameter section.** Feel free to edit other user parameters as needed.
 
-**Version: v1.3**
+**Version: v1.4**
 
 **Changelog:**
+
+*v1.4:*
+- Added gpg Encryption Option
+- Reorganized User Input Sections
+- To Decrypt your file: gpg --output "name you want output to be".tar.gz --decrypt "Encrypted File.tar.gz.gpg"
 
 *v1.3:*
 - Added scrub duration column

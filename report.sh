@@ -1,13 +1,17 @@
 #!/bin/bash
 
 ###### ZPool & SMART status report with FreeNAS config backup
-### Original script by joeschmuck, modified by Bidelu0hm, then by melp (me)
+### Original script by joeschmuck, modified by Bidelu0hm, then by melp (me), then by me (LIGISTX)
 
 ### At a minimum, enter email address in user-definable parameter section. Feel free to edit other user parameters as needed.
 ### If you find any errors, feel free to contact me on the FreeNAS forums (username melp) or email me at jason at jro dot io.
 
-### Version: v1.3
+### Version: v1.4
 ### Changelog:
+# v1.4:
+#   - Added gpg Encryption Option
+#   - Reorganized User Input Sections
+#   - To Decrypt your file: gpg --output "name you want output to be".tar.gz --decrypt "Encrypted File.tar.gz.gpg"
 # v1.3:
 #   - Added scrub duration column
 #   - Fixed for FreeNAS 11.1 (thanks reven!)
@@ -39,9 +43,15 @@
 # - Add support for conveyance test
 
 
-###### User-definable Parameters
+###### User-definable Parameters ######
 ### Email Address
-email="email@address.com"
+email="name@email.com"
+
+### Passphrase for tar.gz file Encryption
+passphrase="thisisabadpassword" 
+
+### Directory in which to save FreeNAS config backups
+backupLocation="your_backup_directory"
 
 ### Global table colors
 okColor="#c9ffcc"       # Hex code for color to use in SMART Status column if drives pass (default is light green, #c9ffcc)
@@ -62,10 +72,17 @@ testAgeWarn=5           # Maximum age (in days) of last SMART test before CRITIC
 powerTimeFormat="ymdh"  # Format for power-on hours string, valid options are "ymdh", "ymd", "ym", or "y" (year month day hour)
 
 ### FreeNAS config backup settings
+configBackupEncryption="true"   # Change to "false" to create tar.gz file without gpg Encryption
 configBackup="true"     # Change to "false" to skip config backup (which renders next two options meaningless); "true" to keep config backups enabled
 saveBackup="true"       # Change to "false" to delete FreeNAS config backup after mail is sent; "true" to keep it in dir below
-backupLocation="/path/to/config/backup"   # Directory in which to save FreeNAS config backups
 
+if [ "$configBackupEncryption" == "true" ]; then # Set file extentions based on encryption options
+    fileExtension="tar.gz.gpg"
+    fileExtensionLong="tar+gzip+GnuPG"
+else
+    fileExtension="tar.gz"
+    fileExtensionLong="tar+gzip"
+fi
 
 ###### Auto-generated Parameters
 host=$(hostname -s)
@@ -103,7 +120,14 @@ pools=$(zpool list -H -o name)
 if [ "$configBackup" == "true" ]; then
     # Set up file names, etc for later
     tarfile="/tmp/config_backup.tar.gz"
+    gpgfile="${tarfile}.gpg"
     filename="$(date "+FreeNAS_Config_%Y-%m-%d")"
+    # Sets backupfile to gpgfile or tarfile based on Encryption Option
+    if [ "$configBackupEncryption" == "true" ]; then
+        backupfile="${gpgfile}"
+    else
+        backupfile="${tarfile}"
+    fi
     ### Test config integrity
     if ! [ "$(sqlite3 /data/freenas-v1.db "pragma integrity_check;")" == "ok" ]; then
         # Config integrity check failed, set MIME content type to html and print warning
@@ -118,30 +142,46 @@ if [ "$configBackup" == "true" ]; then
         # Config integrity check passed; copy config db, generate checksums, make .tar.gz archive
         cp /data/freenas-v1.db "/tmp/${filename}.db"
         md5 "/tmp/${filename}.db" > /tmp/config_backup.md5
-        sha256 "/tmp/${filename}.db" > /tmp/config_backup.sha256
+        sha256 "/tmp/${filename}.db" > /tmp/config_backup.sha256        
         (
             cd "/tmp/" || exit;
             tar -czf "${tarfile}" "./${filename}.db" ./config_backup.md5 ./config_backup.sha256;
         )
+        
+        # If Encryption is enabled, send tarball through gpg
+        if [ "$configBackupEncryption" == "true" ]; then
+
+            (
+                cd "/tmp/" || exit;
+                gpg -c --batch --passphrase "${passphrase}" "${tarfile}";
+                 
+            )
+
+        fi
         (
-            # Write MIME section header for file attachment (encoded with base64)
-            echo "--${boundary}"
-            echo "Content-Type: application/tar+gzip"
-            echo "Content-Transfer-Encoding: base64"
-            echo "Content-Disposition: attachment; filename=${filename}.tar.gz"
-            base64 "$tarfile"
+            (
+                # Write MIME section header for file attachment (encoded with base64)
+                echo "--${boundary}"
+                echo "Content-Type: application/${fileExtensionLong}"
+                echo "Content-Transfer-Encoding: base64"
+                echo "Content-Disposition: attachment; filename=${filename}.${fileExtension}"
+                base64 "$backupfile"
+            )
             # Write MIME section header for html content to come below
             echo "--${boundary}"
             echo "Content-Type: text/html"
         ) >> "$logfile"
         # If logfile saving is enabled, copy .tar.gz file to specified location before it (and everything else) is removed below
         if [ "$saveBackup" == "true" ]; then
-            cp "${tarfile}" "${backupLocation}/${filename}.tar.gz"
+            cp "${backupfile}" "${backupLocation}/${filename}.${fileExtension}"
         fi
         rm "/tmp/${filename}.db"
         rm /tmp/config_backup.md5
         rm /tmp/config_backup.sha256
         rm "${tarfile}"
+        if [ "$configBackupEncryption" == "true" ]; then
+            rm "${gpgfile}"
+        fi
     fi
 else
     # Config backup enabled; set up for html-type content
