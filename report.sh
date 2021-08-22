@@ -608,9 +608,9 @@ function NVMeSummary () {
 
 			# Colorize & derive write stats
 			local totalBW="$(bc <<< "scale=1; (${totalLBA} * ${sectorSize}) / (1024^4)" | sed -e 's:^\.:0.:')"
-			if (( $(bc -l <<< "${totalBW}" > "${totalBWCrit}") )); then
+			if (( $(bc -l <<< "${totalBW} > ${totalBWCrit}") )); then
 				local totalBWColor="${critColor}"
-			elif (( $(bc -l <<< "${totalBW}" > "${totalBWWarn}") )); then
+			elif (( $(bc -l <<< "${totalBW} > ${totalBWWarn}") )); then
 				local totalBWColor="${warnColor}"
 			else
 				local totalBWColor="${bgColor}"
@@ -864,9 +864,9 @@ function SSDSummary () {
 
 			# Colorize & derive write stats
 			local totalBW="$(bc <<< "scale=1; (${totalLBA} * ${sectorSize}) / (1024^4)" | sed -e 's:^\.:0.:')"
-			if (( $(bc -l <<< "${totalBW}" > "${totalBWCrit}") )); then
+			if (( $(bc -l <<< "${totalBW} > ${totalBWCrit}") )); then
 				local totalBWColor="${critColor}"
-			elif (( $(bc -l <<< "${totalBW}" > "${totalBWWarn}") )); then
+			elif (( $(bc -l <<< "${totalBW} > ${totalBWWarn}") )); then
 				local totalBWColor="${warnColor}"
 			else
 				local totalBWColor="${bgColor}"
