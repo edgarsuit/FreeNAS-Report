@@ -1309,7 +1309,7 @@ if [ "${includeSSD}" = "true" ]; then
             ssdExist="false"
         fi
     done
-    if echo "${drives}" | grep -q "nvme"; then
+    if echo "${drives[*]}" | grep -q "nvme"; then
     	NVMeExist="true"
     fi
 fi
