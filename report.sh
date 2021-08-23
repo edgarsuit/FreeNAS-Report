@@ -607,7 +607,7 @@ function NVMeSummary () {
 			fi
 
 			# Colorize & derive write stats
-			local totalBW="$(bc <<< "scale=1; (${totalLBA} * ${sectorSize}) / (1024^4)" | sed -e 's:^\.:0.:')"
+			local totalBW="$(bc <<< "scale=1; (${totalLBA} * ${sectorSize}) / (1024^3)" | sed -e 's:^\.:0.:')"
 			if (( $(bc -l <<< "${totalBW} > ${totalBWCrit}") )); then
 				local totalBWColor="${critColor}"
 			elif (( $(bc -l <<< "${totalBW} > ${totalBWWarn}") )); then
@@ -620,7 +620,7 @@ function NVMeSummary () {
 			else
 				totalBW="${totalBW}TB"
 			fi
-			local bwPerDay="$(bc <<< "scale=1; (((${totalLBA} * ${sectorSize}) / (1024^4)) * 1024) / (${onHours} / 24)" | sed -e 's:^\.:0.:')"
+			local bwPerDay="$(bc <<< "scale=1; (((${totalLBA} * ${sectorSize}) / (1024^3)) * 1024) / (${onHours} / 24)" | sed -e 's:^\.:0.:')"
 			if [ "${bwPerDay}" = "0.0" ]; then
 				bwPerDay="N/A"
 			else
