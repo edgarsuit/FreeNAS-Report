@@ -752,6 +752,8 @@ function SSDSummary () {
 				local Host_Writes="$(echo "${ssdInfoSmrt}" | jq -Mre '.ata_smart_attributes.table[] | select(.id == 241) | .name | values')"
 				if echo "${Host_Writes}" | grep -q 'GiB'; then
 					totalLBA="$(bc <<< "( ${totalLBA} * (1024^3) ) / ${sectorSize}")"
+				elif echo "${Host_Writes}" | grep -q 'GB'; then
+					totalLBA="$(bc <<< "( ${totalLBA} * (1000^3) ) / ${sectorSize}")"
 				elif echo "${Host_Writes}" | grep -q '32MiB'; then
 					totalLBA="$(bc <<< "( (${totalLBA} * 32) * (1024^2) ) / ${sectorSize}")"
 				else
