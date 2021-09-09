@@ -742,6 +742,9 @@ function SSDSummary () {
 				wearLeveling="$(echo "${ssdInfoSmrt}" | jq -Mre '.ata_smart_attributes.table[] | select(.id == 231) | .value | values')"
 				if [ -z "${wearLeveling}" ]; then
 					wearLeveling="$(echo "${ssdInfoSmrt}" | jq -Mre '.ata_smart_attributes.table[] | select(.id == 233) | .value | values')"
+					if [ -z "${wearLeveling}" ]; then
+						wearLeveling="$(echo "${ssdInfoSmrt}" | jq -Mre '.ata_smart_attributes.table[] | select(.id == 177) | .value | values')"
+					fi
 				fi
 			fi
 
