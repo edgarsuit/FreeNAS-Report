@@ -22,6 +22,7 @@ Command: /mnt/pool/storage/smartreport.sh -c /mnt/pool/storage/smartreport.conf
 Run as: root
 Schedule: Daily
 Hide Standard Output: **Checked**
+Hide Standard Error: **Unchecked**
 Enabled: **Checked**
 ```
 
@@ -36,6 +37,14 @@ Make sure the email credentials are configured in `System -> Email`.
 At a minimum, enter an email address for the report to be sent to and set `defaultFile` to 0 in the generated config file. Feel free to edit other user parameters as needed. Backup has been disabled by default so if it is required please set to true.
 
 Once you have updated the config file, click `Run Now` again to generate your first report.
+
+# SMART Tests
+
+You should also configure running your smart tests otherwise the script will not include smart test results and will generate an additional error unless you checked `Hide Standard Error` in the cron job.
+
+You can configure a `SHORT` SMART test to run daily at 11pm before the report is generated.
+
+A `LONG` SMART test can be configured to run once a month.
 
 # Changelog
 
