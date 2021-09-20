@@ -1285,6 +1285,8 @@ fi
 
 ###### Auto-generated Parameters
 host="$(hostname -s)"
+fromEmail="$(sqlite3 /data/freenas-v1.db "select em_fromemail from system_email;")"
+fromName="$(sqlite3 /data/freenas-v1.db "select em_fromname from system_email;")"
 runDate="$(date '+%s')"
 logfile="${logfileLocation}/$(date -r "${runDate}" '+%Y%m%d%H%M%S')_${logfileName}.tmp"
 subject="Status Report and Configuration Backup for ${host} - $(date -r "${runDate}" '+%Y-%m-%d %H:%M')"
@@ -1333,7 +1335,7 @@ readarray -t "pools" <<< "$(zpool list -H -o name)"
 ###### Email pre-formatting
 ### Set email headers
 {
-    echo "From: ${host} <root@$(hostname)>"
+    echo "From: ${fromName} <${fromEmail}>"
     echo "To: ${email}"
     echo "Subject: ${subject}"
     echo "MIME-Version: 1.0"
