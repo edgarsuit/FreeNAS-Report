@@ -694,7 +694,7 @@ function SSDSummary () {
 	local drive
 	local altRow="false"
     for drive in "${drives[@]}"; do
-    	local ssdInfoSmrt="$(smartctl -AHijl selftest "/dev/${drive}")"
+		local ssdInfoSmrt="$(smartctl -AHijl selftest --log="devstat" "/dev/${drive}")"
     	local rotTst="$(echo "${ssdInfoSmrt}" | jq -Mre '.rotation_rate | values')"
         if [ "${rotTst}" = "0" ]; then
 			# For each drive detected, run "smartctl -AHijl selftest" and parse its output.
@@ -741,21 +741,8 @@ function SSDSummary () {
 				fi
 			fi
 
-			# No standard attribute or recording method for data writen
-			local totalLBA="$(echo "${ssdInfoSmrt}" | jq -Mre '.ata_smart_attributes.table[] | select(.id == 246) | .raw.value | values')"
-			if [ -z "${totalLBA}" ]; then
-				totalLBA="$(echo "${ssdInfoSmrt}" | jq -Mre '.ata_smart_attributes.table[] | select(.id == 241) | .raw.value | values')"
-				local Host_Writes="$(echo "${ssdInfoSmrt}" | jq -Mre '.ata_smart_attributes.table[] | select(.id == 241) | .name | values')"
-				if echo "${Host_Writes}" | grep -q 'GiB'; then
-					totalLBA="$(bc <<< "( ${totalLBA} * (1024^3) ) / ${sectorSize}")"
-				elif echo "${Host_Writes}" | grep -q 'GB'; then
-					totalLBA="$(bc <<< "( ${totalLBA} * (1000^3) ) / ${sectorSize}")"
-				elif echo "${Host_Writes}" | grep -q '32MiB'; then
-					totalLBA="$(bc <<< "( (${totalLBA} * 32) * (1024^2) ) / ${sectorSize}")"
-				else
-					totalLBA="0"
-				fi
-			fi
+			# Get LBA written from the stats page for data writen
+			local totalLBA="$(echo "${ssdInfoSmrt}" | jq -Mre '.ata_device_statistics.pages[0].table[] | select(.name == "Logical Sectors Written") | .value | values')"
 
 
 			# Get more useful times from hours
