@@ -326,24 +326,20 @@ function ZpoolSummary () {
 		elif [ "$(echo "${statusOutput}" | grep "scan:" | awk '{print $2}')" = "resilvered" ]; then
 			resilver="<BR>Resilvered"
 			scrubRepBytes="$(echo "${statusOutput}" | grep "scan:" | awk '{print $3}')"
-			scrubErrors="$(echo "${statusOutput}" | grep "scan:" | awk '{print $9}')"
+			scrubErrors="$(echo "${statusOutput}" | grep "scan:" | awk '{print $7}')"
 
 			# Convert time/datestamp format presented by zpool status, compare to current date, calculate scrub age
-			scrubDate="$(echo "${statusOutput}" | grep "scan:" | awk '{print $16"-"$13"-"$14"_"$15}')"
+			scrubDate="$(echo "${statusOutput}" | grep "scan:" | awk '{print $14"-"$11"-"$12"_"$13}')"
 			scrubTS="$(date -j -f '%Y-%b-%e_%H:%M:%S' "${scrubDate}" '+%s')"
 			currentTS="${runDate}"
 			scrubAge="$((((currentTS - scrubTS) + 43200) / 86400))"
-			scrubTime="$(echo "${statusOutput}" | grep "scan:" | awk '{print $7}')"
+			scrubTime="$(echo "${statusOutput}" | grep "scan:" | awk '{print $5}')"
 
 		# Check if resilver is in progress
 		elif [ "$(echo "${statusOutput}"| grep "scan:" | awk '{print $2}')" = "resilver" ]; then
 			scrubRepBytes="Resilver In Progress"
 			scrubAge="$(echo "${statusOutput}" | grep "resilvered," | awk '{print $3" done"}')"
-			if [ "$(echo "${statusOutput}" | grep "resilvered," | awk '{print $5}')" = "0" ]; then
-				scrubTime="$(echo "${statusOutput}" | grep "resilvered," | awk '{print $7"<br>to go"}')"
-			else
-				scrubTime="$(echo "${statusOutput}" | grep "resilvered," | awk '{print $5" "$6" "$7"<br>to go"}')"
-			fi
+			scrubTime="$(echo "${statusOutput}" | grep "resilvered," | awk '{print $5"<br>to go"}')"
 
 		# Check if scrub is in progress
 		elif [ "$(echo "${statusOutput}"| grep "scan:" | awk '{print $4}')" = "progress" ]; then
