@@ -746,7 +746,11 @@ function SSDSummary () {
 
 
 			# Get more useful times from hours
-			local testAge="$(bc <<< "(${onHours} - ${lastTestHours}) / 24")"
+			local testAge
+			if [ ! -z "${lastTestHours}" ]; then
+				testAge="$(bc <<< "(${onHours} - ${lastTestHours}) / 24")"
+			fi
+
 			local yrs="$(bc <<< "${onHours} / 8760")"
 			local mos="$(bc <<< "(${onHours} % 8760) / 730")"
 			local dys="$(bc <<< "((${onHours} % 8760) % 730) / 24")"
@@ -869,7 +873,7 @@ function SSDSummary () {
 			fi
 
 			# Colorize test age
-			if [ "${testAge}" -gt "${testAgeWarn}" ]; then
+			if [ "${testAge:-0}" -gt "${testAgeWarn}" ]; then
 				testAgeColor="${critColor}"
 			else
 				testAgeColor="${bgColor}"
@@ -895,8 +899,8 @@ function SSDSummary () {
 				echo '<td style="text-align:center; background-color:'"${wearLevelingColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${wearLeveling}"'%</td>'
 				echo '<td style="text-align:center; background-color:'"${totalBWColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${totalBW}"'</td>'
 				echo '<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${bwPerDay}"'</td>'
-				echo '<td style="text-align:center; background-color:'"${testAgeColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${testAge}"'</td>'
-				echo '<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${lastTestType}"'</td>'
+				echo '<td style="text-align:center; background-color:'"${testAgeColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${testAge:-"N/A"}"'</td>'
+				echo '<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${lastTestType:-"N/A"}"'</td>'
 				echo '</tr>'
             } >> "${logfile}"
         fi
@@ -983,7 +987,11 @@ function HDDSummary () {
 
 
 			# Get more useful times from hours
-			local testAge="$(bc <<< "(${onHours} - ${lastTestHours}) / 24")"
+			local testAge
+			if [ ! -z "${lastTestHours}" ]; then
+				testAge="$(bc <<< "(${onHours} - ${lastTestHours}) / 24")"
+			fi
+
 			local yrs="$(bc <<< "${onHours} / 8760")"
 			local mos="$(bc <<< "(${onHours} % 8760) / 730")"
 			local dys="$(bc <<< "((${onHours} % 8760) % 730) / 24")"
@@ -1088,7 +1096,7 @@ function HDDSummary () {
 			fi
 
 			# Colorize test age
-			if [ "${testAge}" -gt "${testAgeWarn}" ]; then
+			if [ "${testAge:-0}" -gt "${testAgeWarn}" ]; then
 				testAgeColor="${critColor}"
 			else
 				testAgeColor="${bgColor}"
@@ -1114,8 +1122,8 @@ function HDDSummary () {
 				echo '<td style="text-align:center; background-color:'"${offlineUncColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${offlineUnc}"'</td>'
 				echo '<td style="text-align:center; background-color:'"${crcErrorsColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${crcErrors}"'</td>'
 				echo '<td style="text-align:center; background-color:'"${seekErrorHealthColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${seekErrorHealth}"'%</td>'
-				echo '<td style="text-align:center; background-color:'"${testAgeColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${testAge}"'</td>'
-				echo '<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${lastTestType}"'</td>'
+				echo '<td style="text-align:center; background-color:'"${testAgeColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${testAge:-"N/A"}"'</td>'
+				echo '<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${lastTestType:-"N/A"}"'</td>'
 				echo '</tr>'
 			} >> "${logfile}"
 		fi
