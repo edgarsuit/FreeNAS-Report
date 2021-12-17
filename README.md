@@ -8,7 +8,13 @@ When a resilver is in progress: https://i.imgur.com/CUNUZ7r.png<br>
 After the resilver is done: https://i.imgur.com/I43MLLf.png<br>
 When a scrub is in progess: https://i.imgur.com/YGmvZT4.png<br><br>
 
-**At a minimum, enter email address and set defaultFile to 0 in the generated config file. Feel free to edit other user parameters as needed. Backup has been disabled by default so if it is required please set to true.**<br><br>
+### Usage
+
+`./report.sh -c ./report.cfg`
+
+**report.cfg** will be created if it does not exist and populated with default values.
+
+**At a minimum, enter an email address and set defaultFile to 0 in the generated config file. Feel free to edit other user parameters as needed. Backup has been disabled by default so if it is required please set to true.**<br><br>
 
 **Current Version: v1.7**
 

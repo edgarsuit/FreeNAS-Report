@@ -1215,7 +1215,7 @@ while getopts ":c:" OPTION; do
 done
 
 if [ -z "${configFile}" ]; then
-	echo "Please specify a config file location." >&2
+	echo "Please specify a config file location; if none exist one will be created." >&2
 	exit 1
 elif [ ! -f "${configFile}" ]; then
 	rpConfig
