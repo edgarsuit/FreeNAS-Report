@@ -720,7 +720,7 @@ function SSDSummary () {
 
 			local capacity="$(smartctl -i "/dev/${drive}" | grep '^User Capacity:' | tr -s ' ' | cut -d ' ' -sf '5,6')" # FixMe: have not yet figured out how to best calculate this from json values
 
-			local temp="$(echo "${ssdInfoSmrt}"| jq -Mre '.temperature.current | values')"
+			local temp="$(echo "${ssdInfoSmrt}" | jq -Mre '.temperature.current | values')"
 			local onHours="$(echo "${ssdInfoSmrt}" | jq -Mre '.power_on_time.hours | values')"
 			local startStop="$(echo "${ssdInfoSmrt}" | jq -Mre '.power_cycle_count | values')"
 			local sectorSize="$(echo "${ssdInfoSmrt}" | jq -Mre '.logical_block_size | values')"
@@ -789,7 +789,7 @@ function SSDSummary () {
 			fi
 
 			# Colorize Temp
-			if [ "${temp}" -ge "${tempCrit}" ]; then
+			if [ "${temp:="0"}" -ge "${tempCrit}" ]; then
 				local tempColor="${critColor}"
 			elif [ "${temp}" -ge "${tempWarn}" ]; then
 				tempColor="${warnColor}"
