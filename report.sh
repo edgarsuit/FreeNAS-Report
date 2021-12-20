@@ -846,12 +846,14 @@ function SSDSummary () {
 			fi
 
 			# Colorize Wear Leveling
-			if [ "${wearLeveling}" -le "${lifeRemainCrit}" ]; then
-				local wearLevelingColor="${critColor}"
-			elif [ "${wearLeveling}" -le "${lifeRemainWarn}" ]; then
-				local wearLevelingColor="${warnColor}"
-			else
-				local wearLevelingColor="${bgColor}"
+			if [ ! -z "${wearLeveling}" ]; then
+				if [ "${wearLeveling}" -le "${lifeRemainCrit}" ]; then
+					local wearLevelingColor="${critColor}"
+				elif [ "${wearLeveling}" -le "${lifeRemainWarn}" ]; then
+					local wearLevelingColor="${warnColor}"
+				else
+					local wearLevelingColor="${bgColor}"
+				fi
 			fi
 
 			# Colorize & derive write stats
@@ -899,7 +901,7 @@ function SSDSummary () {
 				echo '<td style="text-align:center; background-color:'"${eraseFailColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${eraseFail}"'</td>'
 				echo '<td style="text-align:center; background-color:'"${offlineUncColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${offlineUnc}"'</td>'
 				echo '<td style="text-align:center; background-color:'"${crcErrorsColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${crcErrors}"'</td>'
-				echo '<td style="text-align:center; background-color:'"${wearLevelingColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${wearLeveling}"'%</td>'
+				echo '<td style="text-align:center; background-color:'"${wearLevelingColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${wearLeveling:=N/A}"'%</td>'
 				echo '<td style="text-align:center; background-color:'"${totalBWColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${totalBW}"'</td>'
 				echo '<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${bwPerDay}"'</td>'
 				echo '<td style="text-align:center; background-color:'"${testAgeColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${testAge:-"N/A"}"'</td>'
