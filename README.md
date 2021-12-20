@@ -3,14 +3,16 @@
 **Current Version: v1.7**
 
 Preview of the output here: https://i.imgur.com/jKwraw4.png
-
 When a resilver is in progress: https://i.imgur.com/CUNUZ7r.png
-
 After the resilver is done: https://i.imgur.com/I43MLLf.png
-
 When a scrub is in progess: https://i.imgur.com/YGmvZT4.png
 
-# Get Started
+# SMART Tests
+
+You should also configure running your smart tests otherwise the script will not include smart test results and will generate an additional error unless you checked `Hide Standard Error` in the cron job.
+
+
+# Getting Started
 
 Place the script under a user `/home/user` or in one of your pools.
 
@@ -18,7 +20,7 @@ Create a Cron Job with the following configuration:
 
 ```
 Description: Run Smart Report
-Command: /mnt/pool/storage/smartreport.sh -c /mnt/pool/storage/smartreport.conf
+Command: /path/to/script/smartreport.sh -c /path/to/script/smartreport.conf
 Run as: root
 Schedule: Daily
 Hide Standard Output: **Checked**
@@ -28,23 +30,12 @@ Enabled: **Checked**
 
 Click `Submit` and then `Run Now`.
 
-A configuration file will be generated at `/mnt/pool/storage/smartreport.conf`
-
-Make sure the email credentials are configured in `System -> Email`. 
-
-> `From Email` and `From Name` are required
+A configuration file will be generated at `/path/to/script/smartreport.conf`
 
 At a minimum, enter an email address for the report to be sent to and set `defaultFile` to 0 in the generated config file. Feel free to edit other user parameters as needed. Backup has been disabled by default so if it is required please set to true.
 
 Once you have updated the config file, click `Run Now` again to generate your first report.
 
-# SMART Tests
-
-You should also configure running your smart tests otherwise the script will not include smart test results and will generate an additional error unless you checked `Hide Standard Error` in the cron job.
-
-You can configure a `SHORT` SMART test to run daily at 11pm before the report is generated.
-
-A `LONG` SMART test can be configured to run once a month.
 
 # Changelog
 
@@ -114,7 +105,5 @@ A `LONG` SMART test can be configured to run once a month.
 
 # Contributors
 Original Script By: joeschmuck
-
 Modified By: bidelu0hm, melp, fohlsso2, onlinepcwizard, ninpucho, isentropik, rotx, dak180
-
 Last Edited By: dak180

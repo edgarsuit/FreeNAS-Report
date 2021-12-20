@@ -1335,7 +1335,7 @@ readarray -t "pools" <<< "$(zpool list -H -o name)"
 ###### Email pre-formatting
 ### Set email headers
 {
-    echo "From: ${fromName} <${fromEmail}>"
+    echo "From: ${fromName:=${host}} <${fromEmail:=root@$(hostname)}>"
     echo "To: ${email}"
     echo "Subject: ${subject}"
     echo "MIME-Version: 1.0"
