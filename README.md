@@ -3,22 +3,44 @@ Original Script By: joeschmuck<br>
 Modified By: bidelu0hm, melp, fohlsso2, onlinepcwizard, ninpucho, isentropik, rotx, dak180<br>
 Last Edited By: dak180
 
-Preview of the output here: https://i.imgur.com/jKwraw4.png<br>
-When a resilver is in progress: https://i.imgur.com/CUNUZ7r.png<br>
-After the resilver is done: https://i.imgur.com/I43MLLf.png<br>
-When a scrub is in progess: https://i.imgur.com/YGmvZT4.png<br><br>
-
-### Usage
-
-`./report.sh -c ./report.cfg`
-
-**report.cfg** will be created if it does not exist and populated with default values.
-
-**At a minimum, enter an email address and set defaultFile to 0 in the generated config file. Feel free to edit other user parameters as needed. Backup has been disabled by default so if it is required please set to true.**<br><br>
-
 **Current Version: v1.7**
 
-**Changelog:**
+Preview of the output here: https://i.imgur.com/jKwraw4.png
+When a resilver is in progress: https://i.imgur.com/CUNUZ7r.png
+After the resilver is done: https://i.imgur.com/I43MLLf.png
+When a scrub is in progess: https://i.imgur.com/YGmvZT4.png
+
+# SMART Tests
+
+You should also configure your smart tests otherwise the script will not include smart test results and will generate an additional error unless you checked `Hide Standard Error` in the cron job.
+
+
+# Getting Started
+
+Place the script under a user `/home/user` or in one of your pools.
+
+Create a Cron Job with the following configuration:
+
+```
+Description: Run Smart Report
+Command: /path/to/script/smartreport.sh -c /path/to/script/smartreport.conf
+Run as: root
+Schedule: Daily
+Hide Standard Output: **Checked**
+Hide Standard Error: **Unchecked**
+Enabled: **Checked**
+```
+
+Click `Submit` and then `Run Now`.
+
+A configuration file will be generated at `/path/to/script/smartreport.conf`
+
+**At a minimum, enter an email address for the report to be sent to and set `defaultFile` to 0 in the generated config file. Feel free to edit other user parameters as needed. Backup has been disabled by default so if it is required please set to true.**
+
+Once you have updated the config file, click `Run Now` again to generate your first report.
+
+
+**Changelog**
 
 *v1.7* (dak180)
  - Refactor to reduce dependence on awk
