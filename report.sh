@@ -1032,7 +1032,7 @@ function HDDSummary () {
 			fi
 
 			# Colorize Temp
-			if [ "${temp}" -ge "${tempCrit}" ]; then
+			if [ "${temp:="0"}" -ge "${tempCrit}" ]; then
 				local tempColor="${critColor}"
 			elif [ "${temp}" -ge "${tempWarn}" ]; then
 				tempColor="${warnColor}"
