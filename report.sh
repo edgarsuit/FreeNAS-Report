@@ -744,8 +744,12 @@ function SSDSummary () {
 				fi
 			fi
 
-			# Get LBA written from the stats page for data writen
-			local totalLBA="$(echo "${ssdInfoSmrt}" | jq -Mre '.ata_device_statistics.pages[0].table[] | select(.name == "Logical Sectors Written") | .value | values')"
+			# Get LBA written from the stats page for data written
+			if [ ! -z "$(echo "${ssdInfoSmrt}" | jq -Mre '.ata_device_statistics.pages[0] | values')" ]; then
+				local totalLBA="$(echo "${ssdInfoSmrt}" | jq -Mre '.ata_device_statistics.pages[0].table[] | select(.name == "Logical Sectors Written") | .value | values')"
+			else
+				local totalLBA="0"
+			fi
 
 
 			# Get more useful times from hours
