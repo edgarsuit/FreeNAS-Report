@@ -616,11 +616,16 @@ function NVMeSummary () {
 			else
 				totalBW="${totalBW}TB"
 			fi
-			local bwPerDay="$(bc <<< "scale=1; (((${totalLBA} * ${sectorSize}) / (1000^3)) * 1000) / (${onHours} / 24)" | sed -e 's:^\.:0.:')"
-			if [ "${bwPerDay}" = "0.0" ]; then
-				bwPerDay="N/A"
+			# Try to not divide by zero
+			if [ ! "0" = "$(bc <<< "scale=1; ${onHours} / 24")" ]; then
+				local bwPerDay="$(bc <<< "scale=1; (((${totalLBA} * ${sectorSize}) / (1000^3)) * 1000) / (${onHours} / 24)" | sed -e 's:^\.:0.:')"
+				if [ "${bwPerDay}" = "0.0" ]; then
+					bwPerDay="N/A"
+				else
+					bwPerDay="${bwPerDay}GB"
+				fi
 			else
-				bwPerDay="${bwPerDay}GB"
+				local bwPerDay="N/A"
 			fi
 
 			# Colorize test age
@@ -874,11 +879,16 @@ function SSDSummary () {
 			else
 				totalBW="${totalBW}TB"
 			fi
-			local bwPerDay="$(bc <<< "scale=1; (((${totalLBA} * ${sectorSize}) / (1000^4)) * 1000) / (${onHours} / 24)" | sed -e 's:^\.:0.:')"
-			if [ "${bwPerDay}" = "0.0" ]; then
-				bwPerDay="N/A"
+			# Try to not divide by zero
+			if [ ! "0" = "$(bc <<< "scale=1; ${onHours} / 24")" ]; then
+				local bwPerDay="$(bc <<< "scale=1; (((${totalLBA} * ${sectorSize}) / (1000^4)) * 1000) / (${onHours} / 24)" | sed -e 's:^\.:0.:')"
+				if [ "${bwPerDay}" = "0.0" ]; then
+					bwPerDay="N/A"
+				else
+					bwPerDay="${bwPerDay}GB"
+				fi
 			else
-				bwPerDay="${bwPerDay}GB"
+				local bwPerDay="N/A"
 			fi
 
 			# Colorize test age
