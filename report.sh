@@ -99,6 +99,8 @@ totalBWWarn="100"         # Total bytes written (in TB) to the SSD at which WARN
 totalBWCrit="200"         # Total bytes written (in TB) to the SSD at which CRITICAL color will be used
 tempWarn="35"             # Drive temp (in C) at which WARNING color will be used
 tempCrit="40"             # Drive temp (in C) at which CRITICAL color will be used
+ssdTempWarn="40"          # SSD drive temp (in C) at which WARNING color will be used
+ssdTempCrit="45"          # SSD drive temp (in C) at which CRITICAL color will be used
 sectorsCrit="10"          # Number of sectors per drive with errors before CRITICAL color will be used
 testAgeWarn="5"           # Maximum age (in days) of last SMART test before CRITICAL color will be used
 powerTimeFormat="ymdh"  # Format for power-on hours string, valid options are "ymdh", "ymd", "ym", or "y" (year month day hour)
@@ -555,9 +557,9 @@ function NVMeSummary () {
 			fi
 
 			# Colorize temp
-			if [ "${temp}" -ge "${tempCrit}" ]; then
+			if [ "${temp}" -ge "${ssdTempCrit}" ]; then
 				local tempColor="${critColor}"
-			elif [ "${temp}" -ge "${tempWarn}" ]; then
+			elif [ "${temp}" -ge "${ssdTempWarn}" ]; then
 				tempColor="${warnColor}"
 			else
 				local tempColor="${bgColor}"
@@ -798,9 +800,9 @@ function SSDSummary () {
 			fi
 
 			# Colorize Temp
-			if [ "${temp:="0"}" -ge "${tempCrit}" ]; then
+			if [ "${temp:="0"}" -ge "${ssdTempCrit}" ]; then
 				local tempColor="${critColor}"
-			elif [ "${temp}" -ge "${tempWarn}" ]; then
+			elif [ "${temp}" -ge "${ssdTempWarn}" ]; then
 				tempColor="${warnColor}"
 			else
 				local tempColor="${bgColor}"
