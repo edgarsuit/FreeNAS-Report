@@ -1246,6 +1246,11 @@ fi
 # shellcheck source=/dev/null
 . "${configFile}"
 
+# Check if we are running on BSD
+if [[ "$(uname -mrs)" =~ .*"BSD".* ]]; then
+	systemType="BSD"
+fi
+
 # Check if needed software is installed.
 PATH="${PATH}:/usr/local/sbin:/usr/local/bin"
 commands=(
@@ -1261,11 +1266,15 @@ tr
 bc
 smartctl
 jq
-glabel
 head
 tail
 sendmail
 )
+if [ "${systemType}" = "BSD" ]; then
+commands+=(
+glabel
+)
+fi
 if [ "${configBackup}" = "true" ]; then
 commands+=(
 tar
@@ -1407,11 +1416,13 @@ fi
 
 
 ### Print Glabel Status
-{
-    echo '<b>########## Glabel Status ##########</b>'
-    glabel status
-    echo '<br><br>'
-} >> "${logfile}"
+if [ "${systemType}" = "BSD" ]; then
+	{
+		echo '<b>########## Glabel Status ##########</b>'
+		glabel status
+		echo '<br><br>'
+	} >> "${logfile}"
+fi
 
 
 ### Zpool status for each pool
@@ -1419,7 +1430,7 @@ for pool in "${pools[@]}"; do
     {
         # Create a simple header and drop the output of zpool status -v
         echo '<b>########## ZPool status report for '"${pool}"' ##########</b>'
-        zpool status -v "${pool}"
+        zpool status -Lv "${pool}"
         echo '<br><br>'
     } >> "${logfile}"
 done
