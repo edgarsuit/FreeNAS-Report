@@ -11,10 +11,12 @@
 ### At a minimum, enter email address and set defaultFile to 0 in the config file.
 ### Feel free to edit other user parameters as needed.
 
-### Current Version: v1.7
+### Current Version: v1.7.5
 ### https://github.com/dak180/FreeNAS-Report
 
 ### Changelog:
+# v1.7.5
+#   - Add initial support for SAS drives
 # v1.7
 #   - Refactor to reduce dependence on awk
 #   - Use a separate config file
