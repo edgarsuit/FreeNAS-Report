@@ -1642,7 +1642,7 @@ for drive in "${drives[@]}"; do
     smartOut="$(smartctl --json=u -i "/dev/${drive}")" # FixMe: smart support flag is not yet implemented in smartctl json output.
     smartTestOut="$(smartctl -l selftest "/dev/${drive}")"
 
-    if echo "${smartOut}" | grep -q "SMART support is: Enabled"; then # FixMe: smart support flag is not yet implemented in smartctl json output.
+    if echo "${smartOut}" | grep "SMART support is:" | grep -q "Enabled"; then # FixMe: smart support flag is not yet implemented in smartctl json output.
         # Gather brand and serial number of each drive
         brand="$(echo "${smartOut}" | jq -Mre '.model_family | values')"
         if [ -z "${brand}" ]; then
