@@ -1340,7 +1340,7 @@ function SASSummary () {
 				echo '<td style="text-align:center; background-color:'"${scsiGrownDefectListColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${scsiGrownDefectList}"'</td>'
 				echo '<td style="text-align:center; background-color:'"${uncorrectedReadErrorsColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${uncorrectedReadErrors}"'</td>'
 				echo '<td style="text-align:center; background-color:'"${uncorrectedWriteErrorsColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${uncorrectedWriteErrors}"'</td>'
-				echo '<td style="text-align:center; background-color:'"${uncorrectedVerifyErrorsColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${uncorrectedVerifyErrors}"'%</td>'
+				echo '<td style="text-align:center; background-color:'"${uncorrectedVerifyErrorsColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${uncorrectedVerifyErrors}"'</td>'
 				echo '<td style="text-align:center; background-color:'"${testAgeColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${testAge:-"N/A"}"'</td>'
 				echo '<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${lastTestType:-"N/A"}"'</td>'
 				echo '</tr>'
