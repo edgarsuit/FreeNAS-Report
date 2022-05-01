@@ -1158,6 +1158,204 @@ function HDDSummary () {
 }
 
 # shellcheck disable=SC2155
+function SASSummary () {
+	###### SAS SMART status summary table
+	{
+		# Write HTML table headers to log file
+		echo '<br><br>'
+		echo '<table style="border: 1px solid black; border-collapse: collapse;">'
+		echo '<tr><th colspan="18" style="text-align:center; font-size:20px; height:40px; font-family:courier;">SAS SMART Status Report Summary</th></tr>'
+		echo '<tr>'
+		echo '<th style="text-align:center; width:100px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Device</th>'
+		echo '<th style="text-align:center; width:130px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Model</th>'
+		echo '<th style="text-align:center; width:130px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Serial<br>Number</th>'
+		echo '<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">RPM</th>'
+		echo '<th style="text-align:center; width:100px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Capacity</th>'
+		echo '<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">SMART<br>Status</th>'
+		echo '<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Temp</th>'
+		echo '<th style="text-align:center; width:120px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Power-On<br>Time<br>('"${powerTimeFormat}"')</th>'
+		echo '<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Grown<br>Defect<br>List</th>'
+		echo '<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Uncorrected<br>Read<br>Errors</th>'
+		echo '<th style="text-align:center; width:120px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Uncorrected<br>Write<br>Errors</th>'
+		echo '<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Uncorrected<br>Verify<br>Errors</th>'
+		echo '<th style="text-align:center; width:100px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Last Test<br>Age (days)</th>'
+		echo '<th style="text-align:center; width:100px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Last Test<br>Type</th></tr>'
+		echo '</tr>'
+	} >> "${logfile}"
+
+	local drive
+	local altRow="false"
+	for drive in "${drives[@]}"; do
+		local sasInfoSmrt="$(smartctl -AHijl selftest "/dev/${drive}")"
+		local rotTst="$(echo "${sasInfoSmrt}" | jq -Mre '.device.type | values')"
+		if [ "${rotTst}" = "scsi" ]; then
+			# For each drive detected, run "smartctl -AHijl selftest" and parse its output.
+			# After parsing the output, compute other values (last test's age, on time in YY-MM-DD-HH).
+			# After these computations, determine the row's background color (alternating as above, subbing in other colors from the palate as needed).
+			# Finally, print the HTML code for the current row of the table with all the gathered data.
+
+			local device="${drive}"
+
+			# Available if any tests have completed
+			local lastTestHours="$(echo "${sasInfoSmrt}" | jq -Mre '.ata_smart_self_test_log.standard.table[0].lifetime_hours | values')"
+			local lastTestType="$(echo "${sasInfoSmrt}" | jq -Mre '.ata_smart_self_test_log.standard.table[0].type.string | values')"
+
+			# Available for any drive smartd knows about
+			if [ "$(echo "${sasInfoSmrt}" | jq -Mre '.smart_status.passed | values')" = "true" ]; then
+				local smartStatus="PASSED"
+			else
+				local smartStatus="FAILED"
+			fi
+
+			local model="$(echo "${sasInfoSmrt}" | jq -Mre '.model_name | values')"
+			local serial="$(echo "${sasInfoSmrt}" | jq -Mre '.serial_number | values')"
+			local rpm="$(echo "${sasInfoSmrt}" | jq -Mre '.rotation_rate | values')"
+			# SAS drives may be SSDs or HDDs
+			if [ "${rpm}" = "0" ]; then
+				rpm="SSD"
+			fi
+
+			local capacity="$(smartctl -i "/dev/${drive}" | grep '^User Capacity:' | tr -s ' ' | cut -d ' ' -sf '5,6')" # FixMe: have not yet figured out how to best calculate this from json values
+
+			local temp="$(echo "${sasInfoSmrt}" | jq -Mre '.temperature.current | values')"
+			local onHours="$(echo "${sasInfoSmrt}" | jq -Mre '.power_on_time.hours | values')"
+
+			# Available for most common drives
+			local scsiGrownDefectList="$(echo "${sasInfoSmrt}" | jq -Mre '.scsi_grown_defect_list | values')"
+			local uncorrectedReadErrors="$(echo "${sasInfoSmrt}" | jq -Mre '.read.total_uncorrected_errors | values')"
+			local uncorrectedWriteErrors="$(echo "${sasInfoSmrt}" | jq -Mre '.write.total_uncorrected_errors | values')"
+			local uncorrectedVerifyErrors="$(echo "${sasInfoSmrt}" | jq -Mre '.verify.total_uncorrected_errors | values')"
+
+
+			# Get more useful times from hours
+			local testAge
+			if [ ! -z "${lastTestHours}" ]; then
+				testAge="$(bc <<< "(${onHours} - ${lastTestHours}) / 24")"
+			fi
+
+			local yrs="$(bc <<< "${onHours} / 8760")"
+			local mos="$(bc <<< "(${onHours} % 8760) / 730")"
+			local dys="$(bc <<< "((${onHours} % 8760) % 730) / 24")"
+			local hrs="$(bc <<< "((${onHours} % 8760) % 730) % 24")"
+
+			# Set Power-On Time format
+			if [ "${powerTimeFormat}" = "ymdh" ]; then
+				local onTime="${yrs}y ${mos}m ${dys}d ${hrs}h"
+			elif [ "${powerTimeFormat}" = "ymd" ]; then
+				local onTime="${yrs}y ${mos}m ${dys}d"
+			elif [ "${powerTimeFormat}" = "ym" ]; then
+				local onTime="${yrs}y ${mos}m"
+			elif [ "${powerTimeFormat}" = "y" ]; then
+				local onTime="${yrs}y"
+			else
+				local onTime="${yrs}y ${mos}m ${dys}d ${hrs}h"
+			fi
+
+			# Set the row background color
+			if [ "${altRow}" = "false" ]; then
+				local bgColor="#ffffff"
+				altRow="true"
+			else
+				local bgColor="${altColor}"
+				altRow="false"
+			fi
+
+			# Colorize Smart Status
+			if [ ! "${smartStatus}" = "PASSED" ]; then
+				local smartStatusColor="${critColor}"
+			else
+				local smartStatusColor="${okColor}"
+			fi
+
+			# Colorize Temp
+			if [ "${temp:="0"}" -ge "${tempCrit}" ]; then
+				local tempColor="${critColor}"
+			elif [ "${temp}" -ge "${tempWarn}" ]; then
+				tempColor="${warnColor}"
+			else
+				local tempColor="${bgColor}"
+			fi
+			if [ "${temp}" = "0" ]; then
+				local temp="N/A"
+			else
+				local temp="${temp}&deg;C"
+			fi
+
+			# Colorize Spin Retry Errors
+			if [ ! "${spinRetry:=0}" = "0" ]; then
+				local spinRetryColor="${warnColor}"
+			else
+				local spinRetryColor="${bgColor}"
+			fi
+
+			# Colorize scsi Grown Defect List Errors
+			if [ "${scsiGrownDefectList:=0}" -gt "${sectorsCrit}" ]; then
+				local scsiGrownDefectListColor="${critColor}"
+			elif [ ! "${scsiGrownDefectList}" = "0" ]; then
+				local scsiGrownDefectListColor="${warnColor}"
+			else
+				local scsiGrownDefectListColor="${bgColor}"
+			fi
+
+			# Colorize Read Errors
+			if [ ! "${uncorrectedReadErrors:=0}" = "0" ]; then
+				local uncorrectedReadErrorsColor="${warnColor}"
+			else
+				local uncorrectedReadErrorsColor="${bgColor}"
+			fi
+
+			# Colorize Write Errors
+			if [ ! "${uncorrectedWriteErrors:=0}" = "0" ]; then
+				local uncorrectedWriteErrorsColor="${warnColor}"
+			else
+				local uncorrectedWriteErrorsColor="${bgColor}"
+			fi
+
+			# Colorize Verify Errors
+			if [ ! "${uncorrectedVerifyErrors:=0}" = "0" ]; then
+				local uncorrectedVerifyErrorsColor="${warnColor}"
+			else
+				local uncorrectedVerifyErrorsColor="${bgColor}"
+			fi
+
+			# Colorize test age
+			if [ "${testAge:-0}" -gt "${testAgeWarn}" ]; then
+				testAgeColor="${critColor}"
+			else
+				testAgeColor="${bgColor}"
+			fi
+
+
+			{
+				# Row Output
+				echo '<tr style="background-color:'"${bgColor}"';">'
+				echo '<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"/dev/${device}"'</td>'
+				echo '<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${model}"'</td>'
+				echo '<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${serial}"'</td>'
+				echo '<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${rpm}"'</td>'
+				echo '<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${capacity}"'</td>'
+				echo '<td style="text-align:center; background-color:'"${smartStatusColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${smartStatus}"'</td>'
+				echo '<td style="text-align:center; background-color:'"${tempColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${temp}"'</td>'
+				echo '<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${onTime}"'</td>'
+				echo '<td style="text-align:center; background-color:'"${scsiGrownDefectListColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${scsiGrownDefectList}"'</td>'
+				echo '<td style="text-align:center; background-color:'"${uncorrectedReadErrorsColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${uncorrectedReadErrors}"'</td>'
+				echo '<td style="text-align:center; background-color:'"${uncorrectedWriteErrorsColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${uncorrectedWriteErrors}"'</td>'
+				echo '<td style="text-align:center; background-color:'"${uncorrectedVerifyErrorsColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${uncorrectedVerifyErrors}"'%</td>'
+				echo '<td style="text-align:center; background-color:'"${testAgeColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${testAge:-"N/A"}"'</td>'
+				echo '<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${lastTestType:-"N/A"}"'</td>'
+				echo '</tr>'
+			} >> "${logfile}"
+		fi
+	done
+
+	# End SMART summary table and summary section
+	{
+		echo '</table>'
+		echo '<br><br>'
+	} >> "${logfile}"
+}
+
+# shellcheck disable=SC2155
 function ReportUPS () {
     # Set to a value greater than zero to include all available UPSC
     # variables in the report:
@@ -1308,7 +1506,7 @@ messageid="$(dbus-uuidgen)"
 # Reorders the drives in ascending order
 # FixMe: smart support flag is not yet implemented in smartctl json output.
 readarray -t "drives" <<< "$(for drive in $(sysctl -n kern.disks | sed -e 's:nvd:nvme:g'); do
-	if smartctl -i "/dev/${drive}" | grep -q "SMART support is: Enabled"; then
+	if smartctl --json=u -i "/dev/${drive}" | grep -q "SMART support is: Enabled"; then
 		printf "%s " "${drive}"
 	elif echo "${drive}" | grep -q "nvme"; then
 		printf "%s " "${drive}"
@@ -1318,7 +1516,7 @@ done | awk '{for (i=NF; i!=0 ; i--) print $i }')"
 # Toggles the 'ssdExist' flag to true if SSDs are detected in order to add the summary table
 if [ "${includeSSD}" = "true" ]; then
     for drive in "${drives[@]}"; do
-        if [ "$(smartctl -ij "/dev/${drive}" | jq -Mre '.rotation_rate | values')" = "0" ]; then
+        if [ "$(smartctl -ij "/dev/${drive}" | jq -Mre '.rotation_rate | values')" = "0" ] && [ ! "$(smartctl -ij "/dev/${drive}" | jq -Mre '.device.type | values')" = "scsi" ]; then
             ssdExist="true"
             break
         else
@@ -1331,11 +1529,20 @@ if [ "${includeSSD}" = "true" ]; then
 fi
 # Test to see if there are any HDDs
 for drive in "${drives[@]}"; do
-	if [ ! "$(smartctl -ij "/dev/${drive}" | jq -Mre '.rotation_rate | values')" = "0" ]; then
+	if [ ! "$(smartctl -ij "/dev/${drive}" | jq -Mre '.rotation_rate | values')" = "0" ] && [ ! "$(smartctl -ij "/dev/${drive}" | jq -Mre '.device.type | values')" = "scsi" ]; then
 		hddExist="true"
 		break
 	else
 		hddExist="false"
+	fi
+done
+# Test to see if there are any SAS drives
+for drive in "${drives[@]}"; do
+	if [ "$(smartctl -ij "/dev/${drive}" | jq -Mre '.device.type | values')" = "scsi" ]; then
+		sasExist="true"
+		break
+	else
+		sasExist="false"
 	fi
 done
 
@@ -1382,6 +1589,11 @@ ZpoolSummary
 
 if [ "${NVMeExist}" = "true" ]; then
 	NVMeSummary
+fi
+
+
+if [ "${sasExist}" = "true" ]; then
+	SASSummary
 fi
 
 
