@@ -1196,7 +1196,7 @@ function SASSummary () {
 
 			local device="${drive}"
 
-			# Available if any tests have completed
+			# Available if any tests have completed #FixMe this info is not currently exported in json for sas drives
 			local lastTestHours="$(echo "${sasInfoSmrt}" | jq -Mre '.ata_smart_self_test_log.standard.table[0].lifetime_hours | values')"
 			local lastTestType="$(echo "${sasInfoSmrt}" | jq -Mre '.ata_smart_self_test_log.standard.table[0].type.string | values')"
 
@@ -1211,7 +1211,7 @@ function SASSummary () {
 			local serial="$(echo "${sasInfoSmrt}" | jq -Mre '.serial_number | values')"
 			local rpm="$(echo "${sasInfoSmrt}" | jq -Mre '.rotation_rate | values')"
 			# SAS drives may be SSDs or HDDs
-			if [ "${rpm}" = "0" ]; then
+			if [ "${rpm:-0}" = "0" ]; then
 				rpm="SSD"
 			fi
 
@@ -1279,13 +1279,6 @@ function SASSummary () {
 				local temp="N/A"
 			else
 				local temp="${temp}&deg;C"
-			fi
-
-			# Colorize Spin Retry Errors
-			if [ ! "${spinRetry:=0}" = "0" ]; then
-				local spinRetryColor="${warnColor}"
-			else
-				local spinRetryColor="${bgColor}"
 			fi
 
 			# Colorize scsi Grown Defect List Errors
