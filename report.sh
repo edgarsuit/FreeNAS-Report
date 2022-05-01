@@ -1506,7 +1506,7 @@ messageid="$(dbus-uuidgen)"
 # Reorders the drives in ascending order
 # FixMe: smart support flag is not yet implemented in smartctl json output.
 readarray -t "drives" <<< "$(for drive in $(sysctl -n kern.disks | sed -e 's:nvd:nvme:g'); do
-	if smartctl --json=u -i "/dev/${drive}" | grep -q "SMART support is: Enabled"; then
+	if smartctl --json=u -i "/dev/${drive}" | grep -q "SMART support is:" | grep -q "Enabled"; then
 		printf "%s " "${drive}"
 	elif echo "${drive}" | grep -q "nvme"; then
 		printf "%s " "${drive}"
