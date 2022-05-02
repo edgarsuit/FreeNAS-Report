@@ -1269,13 +1269,25 @@ function SASSummary () {
 				local smartStatusColor="${okColor}"
 			fi
 
-			# Colorize Temp
-			if [ "${temp:="0"}" -ge "${tempCrit}" ]; then
-				local tempColor="${critColor}"
-			elif [ "${temp}" -ge "${tempWarn}" ]; then
-				tempColor="${warnColor}"
+			# SAS is both SSD and HDD; colorize temp as appropriate
+			if [ "${rpm}" = "SSD" ]; then
+				# SAS SSD
+				if [ "${temp:="0"}" -ge "${ssdTempCrit}" ]; then
+					local tempColor="${critColor}"
+				elif [ "${temp}" -ge "${ssdTempWarn}" ]; then
+					tempColor="${warnColor}"
+				else
+					local tempColor="${bgColor}"
+				fi
 			else
-				local tempColor="${bgColor}"
+				# SAS HDD
+				if [ "${temp:="0"}" -ge "${tempCrit}" ]; then
+					local tempColor="${critColor}"
+				elif [ "${temp}" -ge "${tempWarn}" ]; then
+					tempColor="${warnColor}"
+				else
+					local tempColor="${bgColor}"
+				fi
 			fi
 			if [ "${temp}" = "0" ]; then
 				local temp="N/A"
