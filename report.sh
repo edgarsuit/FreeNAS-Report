@@ -705,7 +705,8 @@ function SSDSummary () {
     for drive in "${drives[@]}"; do
 		local ssdInfoSmrt="$(smartctl -AHijl selftest --log="devstat" "/dev/${drive}")"
     	local rotTst="$(echo "${ssdInfoSmrt}" | jq -Mre '.rotation_rate | values')"
-        if [ "${rotTst}" = "0" ]; then
+    	local scsiTst="$(echo "${ssdInfoSmrt}" | jq -Mre '.device.type | values')"
+        if [ "${rotTst}" = "0" ] && [ ! "${scsiTst}" = "scsi" ]; then
 			# For each drive detected, run "smartctl -AHijl selftest" and parse its output.
 			# Start by parsing out the variables used in other parts of the script.
 			# After parsing the output, compute other values (last test's age, on time in YY-MM-DD-HH).
@@ -970,7 +971,8 @@ function HDDSummary () {
 	for drive in "${drives[@]}"; do
 		local hddInfoSmrt="$(smartctl -AHijl selftest "/dev/${drive}")"
 		local rotTst="$(echo "${hddInfoSmrt}" | jq -Mre '.rotation_rate | values')"
-		if [ ! "${rotTst:="0"}" = "0" ]; then
+		local scsiTst="$(echo "${hddInfoSmrt}" | jq -Mre '.device.type | values')"
+		if [ ! "${rotTst:="0"}" = "0" ] && [ ! "${scsiTst}" = "scsi" ]; then
 			# For each drive detected, run "smartctl -AHijl selftest" and parse its output.
 			# After parsing the output, compute other values (last test's age, on time in YY-MM-DD-HH).
 			# After these computations, determine the row's background color (alternating as above, subbing in other colors from the palate as needed).
