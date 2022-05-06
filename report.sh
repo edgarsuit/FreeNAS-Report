@@ -562,7 +562,7 @@ function NVMeSummary () {
 			if [ "${temp}" -ge "${ssdTempCrit}" ]; then
 				local tempColor="${critColor}"
 			elif [ "${temp}" -ge "${ssdTempWarn}" ]; then
-				tempColor="${warnColor}"
+				local tempColor="${warnColor}"
 			else
 				local tempColor="${bgColor}"
 			fi
@@ -634,9 +634,9 @@ function NVMeSummary () {
 
 			# Colorize test age
 			if [ "${testAge}" -gt "${testAgeWarn}" ]; then
-				testAgeColor="${critColor}"
+				local testAgeColor="${critColor}"
 			else
-				testAgeColor="${bgColor}"
+				local testAgeColor="${bgColor}"
 			fi
 
 
@@ -763,7 +763,7 @@ function SSDSummary () {
 
 
 			# Get more useful times from hours
-			local testAge
+			local testAge=""
 			if [ ! -z "${lastTestHours}" ]; then
 				testAge="$(bc <<< "(${onHours} - ${lastTestHours}) / 24")"
 			fi
@@ -806,7 +806,7 @@ function SSDSummary () {
 			if [ "${temp:="0"}" -ge "${ssdTempCrit}" ]; then
 				local tempColor="${critColor}"
 			elif [ "${temp}" -ge "${ssdTempWarn}" ]; then
-				tempColor="${warnColor}"
+				local tempColor="${warnColor}"
 			else
 				local tempColor="${bgColor}"
 			fi
@@ -898,9 +898,9 @@ function SSDSummary () {
 
 			# Colorize test age
 			if [ "${testAge:-0}" -gt "${testAgeWarn}" ]; then
-				testAgeColor="${critColor}"
+				local testAgeColor="${critColor}"
 			else
-				testAgeColor="${bgColor}"
+				local testAgeColor="${bgColor}"
 			fi
 
 
@@ -1012,7 +1012,7 @@ function HDDSummary () {
 
 
 			# Get more useful times from hours
-			local testAge
+			local testAge=""
 			if [ ! -z "${lastTestHours}" ]; then
 				testAge="$(bc <<< "(${onHours} - ${lastTestHours}) / 24")"
 			fi
@@ -1055,7 +1055,7 @@ function HDDSummary () {
 			if [ "${temp:="0"}" -ge "${tempCrit}" ]; then
 				local tempColor="${critColor}"
 			elif [ "${temp}" -ge "${tempWarn}" ]; then
-				tempColor="${warnColor}"
+				local tempColor="${warnColor}"
 			else
 				local tempColor="${bgColor}"
 			fi
@@ -1122,9 +1122,9 @@ function HDDSummary () {
 
 			# Colorize test age
 			if [ "${testAge:-0}" -gt "${testAgeWarn}" ]; then
-				testAgeColor="${critColor}"
+				local testAgeColor="${critColor}"
 			else
-				testAgeColor="${bgColor}"
+				local testAgeColor="${bgColor}"
 			fi
 
 
@@ -1232,7 +1232,7 @@ function SASSummary () {
 
 
 			# Get more useful times from hours
-			local testAge
+			local testAge=""
 			if [ ! -z "${lastTestHours}" ]; then
 				testAge="$(bc <<< "(${onHours} - ${lastTestHours}) / 24")"
 			fi
@@ -1277,7 +1277,7 @@ function SASSummary () {
 				if [ "${temp:="0"}" -ge "${ssdTempCrit}" ]; then
 					local tempColor="${critColor}"
 				elif [ "${temp}" -ge "${ssdTempWarn}" ]; then
-					tempColor="${warnColor}"
+					local tempColor="${warnColor}"
 				else
 					local tempColor="${bgColor}"
 				fi
@@ -1286,7 +1286,7 @@ function SASSummary () {
 				if [ "${temp:="0"}" -ge "${tempCrit}" ]; then
 					local tempColor="${critColor}"
 				elif [ "${temp}" -ge "${tempWarn}" ]; then
-					tempColor="${warnColor}"
+					local tempColor="${warnColor}"
 				else
 					local tempColor="${bgColor}"
 				fi
@@ -1329,9 +1329,9 @@ function SASSummary () {
 
 			# Colorize test age
 			if [ "${testAge:-0}" -gt "${testAgeWarn}" ]; then
-				testAgeColor="${critColor}"
+				local testAgeColor="${critColor}"
 			else
-				testAgeColor="${bgColor}"
+				local testAgeColor="${bgColor}"
 			fi
 
 
