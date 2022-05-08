@@ -972,6 +972,9 @@ function HDDSummary () {
 		local hddInfoSmrt="$(smartctl -AHijl selftest "/dev/${drive}")"
 		local rotTst="$(echo "${hddInfoSmrt}" | jq -Mre '.rotation_rate | values')"
 		local scsiTst="$(echo "${hddInfoSmrt}" | jq -Mre '.device.type | values')"
+		if [ -z "${rotTst}" ] && [ ! -z "$(echo "${hddInfoSmrt}" | jq -Mre '.ata_smart_attributes.table[] | select(.name == "Spin_Up_Time") | .id | values')" ]; then
+			rotTst="N/R"
+		fi
 		if [ ! "${rotTst:="0"}" = "0" ] && [ ! "${scsiTst}" = "scsi" ]; then
 			# For each drive detected, run "smartctl -AHijl selftest" and parse its output.
 			# After parsing the output, compute other values (last test's age, on time in YY-MM-DD-HH).
