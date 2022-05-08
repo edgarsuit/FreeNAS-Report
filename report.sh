@@ -1209,8 +1209,8 @@ function SASSummary () {
 			local lastTestType="$(echo "${sasInfoSmrt}" | jq -Mre '.ata_smart_self_test_log.standard.table[0].type.string | values')"
 
 			#FixMe: relies on non-json output
-			lastTestHours="$(echo "${nonJsonSasInfoSmrt}" | grep "# 1" | awk '{print $7}')"
-			lastTestType="$(echo "${nonJsonSasInfoSmrt}" | grep "# 1" | awk '{print $3" "$4}')"
+			lastTestHours="$(echo "${nonJsonSasInfoSmrt}" | grep '# 1' | tr -s " " | cut -d ' ' -sf '7')"
+			lastTestType="$(echo "${nonJsonSasInfoSmrt}" | grep '# 1' | tr -s " " | cut -d ' ' -sf '3,4')"
 
 			# Workaround for some drives that do not support self testing but still report a garbage self test log
 			# Set last test type to 'N/A' and last test hours to null "" in this case
@@ -1246,9 +1246,9 @@ function SASSummary () {
 			local uncorrectedVerifyErrors="$(echo "${sasInfoSmrt}" | jq -Mre '.verify.total_uncorrected_errors | values')"
 
 			#FixMe: relies on non-json output
-			local nonMediumErrors="$(echo "${nonJsonSasInfoSmrt}" | grep "Non-medium" | awk '{print $4}')"
-			local accumStartStopCycles="$(echo "${nonJsonSasInfoSmrt}" | grep "Accumulated start-stop" | awk '{print $4}')"
-			local accumLoadUnloadCycles="$(echo "${nonJsonSasInfoSmrt}" | grep "Accumulated load-unload" | awk '{print $4}')"
+			local nonMediumErrors="$(echo "${nonJsonSasInfoSmrt}" | grep "Non-medium" | tr -s " " | cut -d ' ' -sf '4')"
+			local accumStartStopCycles="$(echo "${nonJsonSasInfoSmrt}" | grep "Accumulated start-stop" | tr -s " " | cut -d ' ' -sf '4')"
+			local accumLoadUnloadCycles="$(echo "${nonJsonSasInfoSmrt}" | grep "Accumulated load-unload" | tr -s " " | cut -d ' ' -sf '4')"
 
 			# Get more useful times from hours
 			local testAge=""
