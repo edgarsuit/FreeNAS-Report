@@ -11,10 +11,12 @@
 ### At a minimum, enter email address and set defaultFile to 0 in the config file.
 ### Feel free to edit other user parameters as needed.
 
-### Current Version: v1.7
+### Current Version: v1.7.5
 ### https://github.com/dak180/FreeNAS-Report
 
 ### Changelog:
+# v1.7.5
+#   - Add initial support for SAS drives
 # v1.7
 #   - Refactor to reduce dependence on awk
 #   - Use a separate config file
@@ -560,7 +562,7 @@ function NVMeSummary () {
 			if [ "${temp}" -ge "${ssdTempCrit}" ]; then
 				local tempColor="${critColor}"
 			elif [ "${temp}" -ge "${ssdTempWarn}" ]; then
-				tempColor="${warnColor}"
+				local tempColor="${warnColor}"
 			else
 				local tempColor="${bgColor}"
 			fi
@@ -632,9 +634,9 @@ function NVMeSummary () {
 
 			# Colorize test age
 			if [ "${testAge}" -gt "${testAgeWarn}" ]; then
-				testAgeColor="${critColor}"
+				local testAgeColor="${critColor}"
 			else
-				testAgeColor="${bgColor}"
+				local testAgeColor="${bgColor}"
 			fi
 
 
@@ -703,7 +705,8 @@ function SSDSummary () {
     for drive in "${drives[@]}"; do
 		local ssdInfoSmrt="$(smartctl -AHijl selftest --log="devstat" "/dev/${drive}")"
     	local rotTst="$(echo "${ssdInfoSmrt}" | jq -Mre '.rotation_rate | values')"
-        if [ "${rotTst}" = "0" ]; then
+    	local scsiTst="$(echo "${ssdInfoSmrt}" | jq -Mre '.device.type | values')"
+        if [ "${rotTst}" = "0" ] && [ ! "${scsiTst}" = "scsi" ]; then
 			# For each drive detected, run "smartctl -AHijl selftest" and parse its output.
 			# Start by parsing out the variables used in other parts of the script.
 			# After parsing the output, compute other values (last test's age, on time in YY-MM-DD-HH).
@@ -760,7 +763,7 @@ function SSDSummary () {
 
 
 			# Get more useful times from hours
-			local testAge
+			local testAge=""
 			if [ ! -z "${lastTestHours}" ]; then
 				testAge="$(bc <<< "(${onHours} - ${lastTestHours}) / 24")"
 			fi
@@ -803,7 +806,7 @@ function SSDSummary () {
 			if [ "${temp:="0"}" -ge "${ssdTempCrit}" ]; then
 				local tempColor="${critColor}"
 			elif [ "${temp}" -ge "${ssdTempWarn}" ]; then
-				tempColor="${warnColor}"
+				local tempColor="${warnColor}"
 			else
 				local tempColor="${bgColor}"
 			fi
@@ -895,9 +898,9 @@ function SSDSummary () {
 
 			# Colorize test age
 			if [ "${testAge:-0}" -gt "${testAgeWarn}" ]; then
-				testAgeColor="${critColor}"
+				local testAgeColor="${critColor}"
 			else
-				testAgeColor="${bgColor}"
+				local testAgeColor="${bgColor}"
 			fi
 
 
@@ -968,7 +971,8 @@ function HDDSummary () {
 	for drive in "${drives[@]}"; do
 		local hddInfoSmrt="$(smartctl -AHijl selftest "/dev/${drive}")"
 		local rotTst="$(echo "${hddInfoSmrt}" | jq -Mre '.rotation_rate | values')"
-		if [ ! "${rotTst:="0"}" = "0" ]; then
+		local scsiTst="$(echo "${hddInfoSmrt}" | jq -Mre '.device.type | values')"
+		if [ ! "${rotTst:="0"}" = "0" ] && [ ! "${scsiTst}" = "scsi" ]; then
 			# For each drive detected, run "smartctl -AHijl selftest" and parse its output.
 			# After parsing the output, compute other values (last test's age, on time in YY-MM-DD-HH).
 			# After these computations, determine the row's background color (alternating as above, subbing in other colors from the palate as needed).
@@ -1008,7 +1012,7 @@ function HDDSummary () {
 
 
 			# Get more useful times from hours
-			local testAge
+			local testAge=""
 			if [ ! -z "${lastTestHours}" ]; then
 				testAge="$(bc <<< "(${onHours} - ${lastTestHours}) / 24")"
 			fi
@@ -1051,7 +1055,7 @@ function HDDSummary () {
 			if [ "${temp:="0"}" -ge "${tempCrit}" ]; then
 				local tempColor="${critColor}"
 			elif [ "${temp}" -ge "${tempWarn}" ]; then
-				tempColor="${warnColor}"
+				local tempColor="${warnColor}"
 			else
 				local tempColor="${bgColor}"
 			fi
@@ -1118,9 +1122,9 @@ function HDDSummary () {
 
 			# Colorize test age
 			if [ "${testAge:-0}" -gt "${testAgeWarn}" ]; then
-				testAgeColor="${critColor}"
+				local testAgeColor="${critColor}"
 			else
-				testAgeColor="${bgColor}"
+				local testAgeColor="${bgColor}"
 			fi
 
 
@@ -1143,6 +1147,231 @@ function HDDSummary () {
 				echo '<td style="text-align:center; background-color:'"${offlineUncColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${offlineUnc}"'</td>'
 				echo '<td style="text-align:center; background-color:'"${crcErrorsColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${crcErrors}"'</td>'
 				echo '<td style="text-align:center; background-color:'"${seekErrorHealthColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${seekErrorHealth}"'%</td>'
+				echo '<td style="text-align:center; background-color:'"${testAgeColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${testAge:-"N/A"}"'</td>'
+				echo '<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${lastTestType:-"N/A"}"'</td>'
+				echo '</tr>'
+			} >> "${logfile}"
+		fi
+	done
+
+	# End SMART summary table and summary section
+	{
+		echo '</table>'
+		echo '<br><br>'
+	} >> "${logfile}"
+}
+
+# shellcheck disable=SC2155
+function SASSummary () {
+	###### SAS SMART status summary table
+	{
+		# Write HTML table headers to log file
+		echo '<br><br>'
+		echo '<table style="border: 1px solid black; border-collapse: collapse;">'
+		echo '<tr><th colspan="18" style="text-align:center; font-size:20px; height:40px; font-family:courier;">SAS SMART Status Report Summary</th></tr>'
+		echo '<tr>'
+		echo '<th style="text-align:center; width:100px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Device</th>'
+		echo '<th style="text-align:center; width:130px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Model</th>'
+		echo '<th style="text-align:center; width:130px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Serial<br>Number</th>'
+		echo '<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">RPM</th>'
+		echo '<th style="text-align:center; width:100px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Capacity</th>'
+		echo '<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">SMART<br>Status</th>'
+		echo '<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Temp</th>'
+		echo '<th style="text-align:center; width:120px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Power-On<br>Time<br>('"${powerTimeFormat}"')</th>'
+		echo '<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Start<br>Stop<br>Cycles</th>'
+		echo '<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Load<br>Unload<br>Cycles</th>'
+		echo '<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Grown<br>Defect<br>List</th>'
+		echo '<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Uncorrected<br>Read<br>Errors</th>'
+		echo '<th style="text-align:center; width:120px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Uncorrected<br>Write<br>Errors</th>'
+		echo '<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Uncorrected<br>Verify<br>Errors</th>'
+		echo '<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Non-medium<br>Errors</th>'
+		echo '<th style="text-align:center; width:100px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Last Test<br>Age (days)</th>'
+		echo '<th style="text-align:center; width:100px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Last Test<br>Type</th></tr>'
+		echo '</tr>'
+	} >> "${logfile}"
+
+	local drive
+	local altRow="false"
+	for drive in "${drives[@]}"; do
+		local sasInfoSmrt="$(smartctl -AHijl selftest "/dev/${drive}")"
+		local nonJsonSasInfoSmrt="$(smartctl -Al error -l selftest "/dev/${drive}")"
+		local rotTst="$(echo "${sasInfoSmrt}" | jq -Mre '.device.type | values')"
+		if [ "${rotTst}" = "scsi" ]; then
+			# For each drive detected, run "smartctl -AHijl selftest" and parse its output.
+			# After parsing the output, compute other values (last test's age, on time in YY-MM-DD-HH).
+			# After these computations, determine the row's background color (alternating as above, subbing in other colors from the palate as needed).
+			# Finally, print the HTML code for the current row of the table with all the gathered data.
+
+			local device="${drive}"
+
+			# Available if any tests have completed #FixMe this info is not currently exported in json for sas drives
+			local lastTestHours="$(echo "${sasInfoSmrt}" | jq -Mre '.ata_smart_self_test_log.standard.table[0].lifetime_hours | values')"
+			local lastTestType="$(echo "${sasInfoSmrt}" | jq -Mre '.ata_smart_self_test_log.standard.table[0].type.string | values')"
+
+			#FixMe: relies on non-json output
+			lastTestHours="$(echo "${nonJsonSasInfoSmrt}" | grep '# 1' | tr -s " " | cut -d ' ' -sf '7')"
+			lastTestType="$(echo "${nonJsonSasInfoSmrt}" | grep '# 1' | tr -s " " | cut -d ' ' -sf '3,4')"
+
+			# Workaround for some drives that do not support self testing but still report a garbage self test log
+			# Set last test type to 'N/A' and last test hours to null "" in this case
+			if [ "${lastTestType}" == "Default Self" ]; then
+				lastTestType="N/A"
+				lastTestHours=""
+			fi
+
+			# Available for any drive smartd knows about
+			if [ "$(echo "${sasInfoSmrt}" | jq -Mre '.smart_status.passed | values')" = "true" ]; then
+				local smartStatus="PASSED"
+			else
+				local smartStatus="FAILED"
+			fi
+
+			local model="$(echo "${sasInfoSmrt}" | jq -Mre '.model_name | values')"
+			local serial="$(echo "${sasInfoSmrt}" | jq -Mre '.serial_number | values')"
+			local rpm="$(echo "${sasInfoSmrt}" | jq -Mre '.rotation_rate | values')"
+			# SAS drives may be SSDs or HDDs
+			if [ "${rpm:-0}" = "0" ]; then
+				rpm="SSD"
+			fi
+
+			local capacity="$(smartctl -i "/dev/${drive}" | grep '^User Capacity:' | tr -s ' ' | cut -d ' ' -sf '5,6')" # FixMe: have not yet figured out how to best calculate this from json values
+
+			local temp="$(echo "${sasInfoSmrt}" | jq -Mre '.temperature.current | values')"
+			local onHours="$(echo "${sasInfoSmrt}" | jq -Mre '.power_on_time.hours | values')"
+
+			# Available for most common drives
+			local scsiGrownDefectList="$(echo "${sasInfoSmrt}" | jq -Mre '.scsi_grown_defect_list | values')"
+			local uncorrectedReadErrors="$(echo "${sasInfoSmrt}" | jq -Mre '.read.total_uncorrected_errors | values')"
+			local uncorrectedWriteErrors="$(echo "${sasInfoSmrt}" | jq -Mre '.write.total_uncorrected_errors | values')"
+			local uncorrectedVerifyErrors="$(echo "${sasInfoSmrt}" | jq -Mre '.verify.total_uncorrected_errors | values')"
+
+			#FixMe: relies on non-json output
+			local nonMediumErrors="$(echo "${nonJsonSasInfoSmrt}" | grep "Non-medium" | tr -s " " | cut -d ' ' -sf '4')"
+			local accumStartStopCycles="$(echo "${nonJsonSasInfoSmrt}" | grep "Accumulated start-stop" | tr -s " " | cut -d ' ' -sf '4')"
+			local accumLoadUnloadCycles="$(echo "${nonJsonSasInfoSmrt}" | grep "Accumulated load-unload" | tr -s " " | cut -d ' ' -sf '4')"
+
+			# Get more useful times from hours
+			local testAge=""
+			if [ ! -z "${lastTestHours}" ]; then
+				testAge="$(bc <<< "(${onHours} - ${lastTestHours}) / 24")"
+			fi
+
+			local yrs="$(bc <<< "${onHours} / 8760")"
+			local mos="$(bc <<< "(${onHours} % 8760) / 730")"
+			local dys="$(bc <<< "((${onHours} % 8760) % 730) / 24")"
+			local hrs="$(bc <<< "((${onHours} % 8760) % 730) % 24")"
+
+			# Set Power-On Time format
+			if [ "${powerTimeFormat}" = "ymdh" ]; then
+				local onTime="${yrs}y ${mos}m ${dys}d ${hrs}h"
+			elif [ "${powerTimeFormat}" = "ymd" ]; then
+				local onTime="${yrs}y ${mos}m ${dys}d"
+			elif [ "${powerTimeFormat}" = "ym" ]; then
+				local onTime="${yrs}y ${mos}m"
+			elif [ "${powerTimeFormat}" = "y" ]; then
+				local onTime="${yrs}y"
+			else
+				local onTime="${yrs}y ${mos}m ${dys}d ${hrs}h"
+			fi
+
+			# Set the row background color
+			if [ "${altRow}" = "false" ]; then
+				local bgColor="#ffffff"
+				altRow="true"
+			else
+				local bgColor="${altColor}"
+				altRow="false"
+			fi
+
+			# Colorize Smart Status
+			if [ ! "${smartStatus}" = "PASSED" ]; then
+				local smartStatusColor="${critColor}"
+			else
+				local smartStatusColor="${okColor}"
+			fi
+
+			# SAS is both SSD and HDD; colorize temp as appropriate
+			if [ "${rpm}" = "SSD" ]; then
+				# SAS SSD
+				if [ "${temp:="0"}" -ge "${ssdTempCrit}" ]; then
+					local tempColor="${critColor}"
+				elif [ "${temp}" -ge "${ssdTempWarn}" ]; then
+					local tempColor="${warnColor}"
+				else
+					local tempColor="${bgColor}"
+				fi
+			else
+				# SAS HDD
+				if [ "${temp:="0"}" -ge "${tempCrit}" ]; then
+					local tempColor="${critColor}"
+				elif [ "${temp}" -ge "${tempWarn}" ]; then
+					local tempColor="${warnColor}"
+				else
+					local tempColor="${bgColor}"
+				fi
+			fi
+			if [ "${temp}" = "0" ]; then
+				local temp="N/A"
+			else
+				local temp="${temp}&deg;C"
+			fi
+
+			# Colorize scsi Grown Defect List Errors
+			if [ "${scsiGrownDefectList:=0}" -gt "${sectorsCrit}" ]; then
+				local scsiGrownDefectListColor="${critColor}"
+			elif [ ! "${scsiGrownDefectList}" = "0" ]; then
+				local scsiGrownDefectListColor="${warnColor}"
+			else
+				local scsiGrownDefectListColor="${bgColor}"
+			fi
+
+			# Colorize Read Errors
+			if [ ! "${uncorrectedReadErrors:=0}" = "0" ]; then
+				local uncorrectedReadErrorsColor="${warnColor}"
+			else
+				local uncorrectedReadErrorsColor="${bgColor}"
+			fi
+
+			# Colorize Write Errors
+			if [ ! "${uncorrectedWriteErrors:=0}" = "0" ]; then
+				local uncorrectedWriteErrorsColor="${warnColor}"
+			else
+				local uncorrectedWriteErrorsColor="${bgColor}"
+			fi
+
+			# Colorize Verify Errors
+			if [ ! "${uncorrectedVerifyErrors:=0}" = "0" ]; then
+				local uncorrectedVerifyErrorsColor="${warnColor}"
+			else
+				local uncorrectedVerifyErrorsColor="${bgColor}"
+			fi
+
+			# Colorize test age
+			if [ "${testAge:-0}" -gt "${testAgeWarn}" ]; then
+				local testAgeColor="${critColor}"
+			else
+				local testAgeColor="${bgColor}"
+			fi
+
+
+			{
+				# Row Output
+				echo '<tr style="background-color:'"${bgColor}"';">'
+				echo '<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"/dev/${device}"'</td>'
+				echo '<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${model}"'</td>'
+				echo '<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${serial}"'</td>'
+				echo '<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${rpm}"'</td>'
+				echo '<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${capacity}"'</td>'
+				echo '<td style="text-align:center; background-color:'"${smartStatusColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${smartStatus}"'</td>'
+				echo '<td style="text-align:center; background-color:'"${tempColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${temp}"'</td>'
+				echo '<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${onTime}"'</td>'
+				echo '<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${accumStartStopCycles}"'</td>'
+				echo '<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${accumLoadUnloadCycles}"'</td>'
+				echo '<td style="text-align:center; background-color:'"${scsiGrownDefectListColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${scsiGrownDefectList}"'</td>'
+				echo '<td style="text-align:center; background-color:'"${uncorrectedReadErrorsColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${uncorrectedReadErrors}"'</td>'
+				echo '<td style="text-align:center; background-color:'"${uncorrectedWriteErrorsColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${uncorrectedWriteErrors}"'</td>'
+				echo '<td style="text-align:center; background-color:'"${uncorrectedVerifyErrorsColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${uncorrectedVerifyErrors}"'</td>'
+				echo '<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${nonMediumErrors}"'</td>'
 				echo '<td style="text-align:center; background-color:'"${testAgeColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${testAge:-"N/A"}"'</td>'
 				echo '<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${lastTestType:-"N/A"}"'</td>'
 				echo '</tr>'
@@ -1308,7 +1537,7 @@ messageid="$(dbus-uuidgen)"
 # Reorders the drives in ascending order
 # FixMe: smart support flag is not yet implemented in smartctl json output.
 readarray -t "drives" <<< "$(for drive in $(sysctl -n kern.disks | sed -e 's:nvd:nvme:g'); do
-	if smartctl -i "/dev/${drive}" | grep -q "SMART support is: Enabled"; then
+	if smartctl --json=u -i "/dev/${drive}" | grep "SMART support is:" | grep -q "Enabled"; then
 		printf "%s " "${drive}"
 	elif echo "${drive}" | grep -q "nvme"; then
 		printf "%s " "${drive}"
@@ -1318,7 +1547,7 @@ done | awk '{for (i=NF; i!=0 ; i--) print $i }')"
 # Toggles the 'ssdExist' flag to true if SSDs are detected in order to add the summary table
 if [ "${includeSSD}" = "true" ]; then
     for drive in "${drives[@]}"; do
-        if [ "$(smartctl -ij "/dev/${drive}" | jq -Mre '.rotation_rate | values')" = "0" ]; then
+        if [ "$(smartctl -ij "/dev/${drive}" | jq -Mre '.rotation_rate | values')" = "0" ] && [ ! "$(smartctl -ij "/dev/${drive}" | jq -Mre '.device.type | values')" = "scsi" ]; then
             ssdExist="true"
             break
         else
@@ -1331,11 +1560,20 @@ if [ "${includeSSD}" = "true" ]; then
 fi
 # Test to see if there are any HDDs
 for drive in "${drives[@]}"; do
-	if [ ! "$(smartctl -ij "/dev/${drive}" | jq -Mre '.rotation_rate | values')" = "0" ]; then
+	if [ ! "$(smartctl -ij "/dev/${drive}" | jq -Mre '.rotation_rate | values')" = "0" ] && [ ! "$(smartctl -ij "/dev/${drive}" | jq -Mre '.device.type | values')" = "scsi" ]; then
 		hddExist="true"
 		break
 	else
 		hddExist="false"
+	fi
+done
+# Test to see if there are any SAS drives
+for drive in "${drives[@]}"; do
+	if [ "$(smartctl -ij "/dev/${drive}" | jq -Mre '.device.type | values')" = "scsi" ]; then
+		sasExist="true"
+		break
+	else
+		sasExist="false"
 	fi
 done
 
@@ -1385,6 +1623,11 @@ if [ "${NVMeExist}" = "true" ]; then
 fi
 
 
+if [ "${sasExist}" = "true" ]; then
+	SASSummary
+fi
+
+
 if [ "${ssdExist}" = "true" ]; then
 	SSDSummary
 fi
@@ -1430,7 +1673,7 @@ for drive in "${drives[@]}"; do
     smartOut="$(smartctl --json=u -i "/dev/${drive}")" # FixMe: smart support flag is not yet implemented in smartctl json output.
     smartTestOut="$(smartctl -l selftest "/dev/${drive}")"
 
-    if echo "${smartOut}" | grep -q "SMART support is: Enabled"; then # FixMe: smart support flag is not yet implemented in smartctl json output.
+    if echo "${smartOut}" | grep "SMART support is:" | grep -q "Enabled"; then # FixMe: smart support flag is not yet implemented in smartctl json output.
         # Gather brand and serial number of each drive
         brand="$(echo "${smartOut}" | jq -Mre '.model_family | values')"
         if [ -z "${brand}" ]; then
