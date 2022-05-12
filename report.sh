@@ -972,7 +972,7 @@ function HDDSummary () {
 		local hddInfoSmrt="$(smartctl -AHijl selftest "/dev/${drive}")"
 		local rotTst="$(echo "${hddInfoSmrt}" | jq -Mre '.rotation_rate | values')"
 		local scsiTst="$(echo "${hddInfoSmrt}" | jq -Mre '.device.type | values')"
-		if [ -z "${rotTst}" ] && [ ! -z "$(echo "${hddInfoSmrt}" | jq -Mre '.ata_smart_attributes.table[] | select(.name == "Spin_Up_Time") | .id | values')" ]; then
+		if [ -z "${rotTst}" ] && [ ! -z "$(echo "${hddInfoSmrt}" | jq -Mre '.ata_smart_attributes.table[]? | select(.name == "Spin_Up_Time") | .id | values')" ]; then
 			rotTst="N/R"
 		fi
 		if [ ! "${rotTst:="0"}" = "0" ] && [ ! "${scsiTst}" = "scsi" ]; then
