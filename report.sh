@@ -717,6 +717,7 @@ function SSDSummary () {
 			# Available if any tests have completed
 			local lastTestHours="$(echo "${ssdInfoSmrt}" | jq -Mre '.ata_smart_self_test_log.standard.table[0].lifetime_hours | values')"
 			local lastTestType="$(echo "${ssdInfoSmrt}" | jq -Mre '.ata_smart_self_test_log.standard.table[0].type.string | values')"
+			local lastTestStatus="$(echo "${ssdInfoSmrt}" | jq -Mre '.ata_smart_self_test_log.standard.table[0].status.passed | values')"
 
 			# Available for any drive smartd knows about
 			if [ "$(echo "${ssdInfoSmrt}" | jq -Mre '.smart_status.passed | values')" = "true" ]; then
@@ -800,6 +801,13 @@ function SSDSummary () {
 				local smartStatusColor="${critColor}"
 			else
 				local smartStatusColor="${okColor}"
+			fi
+
+			# Colorize Smart test Status
+			if [ "${lastTestStatus}" = "false" ]; then
+				local lastTestStatusColor="${critColor}"
+			else
+				local lastTestStatusColor="${bgColor}"
 			fi
 
 			# Colorize Temp
@@ -924,7 +932,7 @@ function SSDSummary () {
 				echo '<td style="text-align:center; background-color:'"${totalBWColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${totalBW}"'</td>'
 				echo '<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${bwPerDay}"'</td>'
 				echo '<td style="text-align:center; background-color:'"${testAgeColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${testAge:-"N/A"}"'</td>'
-				echo '<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${lastTestType:-"N/A"}"'</td>'
+				echo '<td style="text-align:center; background-color:'"${lastTestStatusColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${lastTestType:-"N/A"}"'</td>'
 				echo '</tr>'
             } >> "${logfile}"
         fi
@@ -986,6 +994,7 @@ function HDDSummary () {
 			# Available if any tests have completed
 			local lastTestHours="$(echo "${hddInfoSmrt}" | jq -Mre '.ata_smart_self_test_log.standard.table[0].lifetime_hours | values')"
 			local lastTestType="$(echo "${hddInfoSmrt}" | jq -Mre '.ata_smart_self_test_log.standard.table[0].type.string | values')"
+			local lastTestStatus="$(echo "${hddInfoSmrt}" | jq -Mre '.ata_smart_self_test_log.standard.table[0].status.passed | values')"
 
 			# Available for any drive smartd knows about
 			if [ "$(echo "${hddInfoSmrt}" | jq -Mre '.smart_status.passed | values')" = "true" ]; then
@@ -1052,6 +1061,13 @@ function HDDSummary () {
 				local smartStatusColor="${critColor}"
 			else
 				local smartStatusColor="${okColor}"
+			fi
+
+			# Colorize Smart test Status
+			if [ "${lastTestStatus}" = "false" ]; then
+				local lastTestStatusColor="${critColor}"
+			else
+				local lastTestStatusColor="${bgColor}"
 			fi
 
 			# Colorize Temp
@@ -1151,7 +1167,7 @@ function HDDSummary () {
 				echo '<td style="text-align:center; background-color:'"${crcErrorsColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${crcErrors}"'</td>'
 				echo '<td style="text-align:center; background-color:'"${seekErrorHealthColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${seekErrorHealth}"'%</td>'
 				echo '<td style="text-align:center; background-color:'"${testAgeColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${testAge:-"N/A"}"'</td>'
-				echo '<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${lastTestType:-"N/A"}"'</td>'
+				echo '<td style="text-align:center; background-color:'"${lastTestStatusColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${lastTestType:-"N/A"}"'</td>'
 				echo '</tr>'
 			} >> "${logfile}"
 		fi
