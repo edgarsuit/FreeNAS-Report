@@ -1227,24 +1227,24 @@ function SASSummary () {
 			local lastTestHours="$(echo "${sasInfoSmrt}" | jq -Mre '.ata_smart_self_test_log.standard.table[0].lifetime_hours | values')"
 			local lastTestType="$(echo "${sasInfoSmrt}" | jq -Mre '.ata_smart_self_test_log.standard.table[0].type.string | values')"
 			local lastTestStatus="$(echo "${sasInfoSmrt}" | jq -Mre '.ata_smart_self_test_log.standard.table[0].status.passed | values')"
-            
+
 			#FixMe: relies on non-json output
 			lastTestHours="$(echo "${nonJsonSasInfoSmrt}" | grep '# 1' | tr -s " " | cut -d ' ' -sf '7')"
 			lastTestType="$(echo "${nonJsonSasInfoSmrt}" | grep '# 1' | tr -s " " | cut -d ' ' -sf '3,4')"
 			lastTestStatus="$(echo "${nonJsonSasInfoSmrt}" | grep '# 1' | tr -s " " | cut -d ' ' -sf '8,9,10,11')"
+
+			# Mimic the true/false response expected from json in the future
+			if [ "${lastTestStatus}" = "- [- - -]" ] || [ "${lastTestType}" = "N/A" ]; then
+				lastTestStatus="true"
+			else
+				lastTestStatus="false"
+			fi
 
 			# Workaround for some drives that do not support self testing but still report a garbage self test log
 			# Set last test type to 'N/A' and last test hours to null "" in this case
 			if [ "${lastTestType}" == "Default Self" ]; then
 				lastTestType="N/A"
 				lastTestHours=""
-			fi
-
-			# Mimic the true/false response expected from json in the future
-			if [ "${lastTestStatus}" = "- [- - -]" ] || [ "${lastTestType}" = "N/A" ]; then 
-				lastTestStatus="true"
-			else
-				lastTestStatus="false"
 			fi
 
 			# Available for any drive smartd knows about
@@ -1318,6 +1318,13 @@ function SASSummary () {
 				local smartStatusColor="${okColor}"
 			fi
 
+			# Colorize Smart test Status
+			if [ "${lastTestStatus}" = "false" ]; then
+				local lastTestStatusColor="${critColor}"
+			else
+				local lastTestStatusColor="${bgColor}"
+			fi
+
 			# SAS is both SSD and HDD; colorize temp as appropriate
 			if [ "${rpm}" = "SSD" ]; then
 				# SAS SSD
@@ -1379,13 +1386,6 @@ function SASSummary () {
 				local testAgeColor="${critColor}"
 			else
 				local testAgeColor="${bgColor}"
-			fi
-
-			# Colorize Smart test Status
-			if [ "${lastTestStatus}" = "false" ]; then
-				local lastTestStatusColor="${critColor}"
-			else
-				local lastTestStatusColor="${bgColor}"
 			fi
 
 			{
