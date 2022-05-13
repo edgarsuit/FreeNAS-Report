@@ -1240,13 +1240,13 @@ function SASSummary () {
 				lastTestHours=""
 			fi
 
-            # Mimic the true/false response expected from json in the future
-            if [ "${lastTestStatus}" = "- [- - -]" ] || [ "${lastTestType}" = "N/A" ]; then 
-                lastTestStatus="true"
-            else
-                lastTestStatus="false"
-            fi
-            
+			# Mimic the true/false response expected from json in the future
+			if [ "${lastTestStatus}" = "- [- - -]" ] || [ "${lastTestType}" = "N/A" ]; then 
+				lastTestStatus="true"
+			else
+				lastTestStatus="false"
+			fi
+
 			# Available for any drive smartd knows about
 			if [ "$(echo "${sasInfoSmrt}" | jq -Mre '.smart_status.passed | values')" = "true" ]; then
 				local smartStatus="PASSED"
@@ -1381,7 +1381,7 @@ function SASSummary () {
 				local testAgeColor="${bgColor}"
 			fi
 
-            # Colorize Smart test Status
+			# Colorize Smart test Status
 			if [ "${lastTestStatus}" = "false" ]; then
 				local lastTestStatusColor="${critColor}"
 			else
