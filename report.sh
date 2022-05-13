@@ -1226,10 +1226,12 @@ function SASSummary () {
 			# Available if any tests have completed #FixMe this info is not currently exported in json for sas drives
 			local lastTestHours="$(echo "${sasInfoSmrt}" | jq -Mre '.ata_smart_self_test_log.standard.table[0].lifetime_hours | values')"
 			local lastTestType="$(echo "${sasInfoSmrt}" | jq -Mre '.ata_smart_self_test_log.standard.table[0].type.string | values')"
-
+			local lastTestStatus="$(echo "${sasInfoSmrt}" | jq -Mre '.ata_smart_self_test_log.standard.table[0].status.passed | values')"
+            
 			#FixMe: relies on non-json output
 			lastTestHours="$(echo "${nonJsonSasInfoSmrt}" | grep '# 1' | tr -s " " | cut -d ' ' -sf '7')"
 			lastTestType="$(echo "${nonJsonSasInfoSmrt}" | grep '# 1' | tr -s " " | cut -d ' ' -sf '3,4')"
+			lastTestStatus="$(echo "${nonJsonSasInfoSmrt}" | grep '# 1' | tr -s " " | cut -d ' ' -sf '8,9,10,11')"
 
 			# Workaround for some drives that do not support self testing but still report a garbage self test log
 			# Set last test type to 'N/A' and last test hours to null "" in this case
@@ -1238,6 +1240,13 @@ function SASSummary () {
 				lastTestHours=""
 			fi
 
+            # Mimic the true/false response expected from json in the future
+            if [ "${lastTestStatus}" = "- [- - -]" ] || [ "${lastTestType}" = "N/A" ]; then 
+                lastTestStatus="true"
+            else
+                lastTestStatus="false"
+            fi
+            
 			# Available for any drive smartd knows about
 			if [ "$(echo "${sasInfoSmrt}" | jq -Mre '.smart_status.passed | values')" = "true" ]; then
 				local smartStatus="PASSED"
@@ -1372,6 +1381,12 @@ function SASSummary () {
 				local testAgeColor="${bgColor}"
 			fi
 
+            # Colorize Smart test Status
+			if [ "${lastTestStatus}" = "false" ]; then
+				local lastTestStatusColor="${critColor}"
+			else
+				local lastTestStatusColor="${bgColor}"
+			fi
 
 			{
 				# Row Output
@@ -1392,7 +1407,7 @@ function SASSummary () {
 				echo '<td style="text-align:center; background-color:'"${uncorrectedVerifyErrorsColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${uncorrectedVerifyErrors}"'</td>'
 				echo '<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${nonMediumErrors}"'</td>'
 				echo '<td style="text-align:center; background-color:'"${testAgeColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${testAge:-"N/A"}"'</td>'
-				echo '<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${lastTestType:-"N/A"}"'</td>'
+				echo '<td style="text-align:center; background-color:'"${lastTestStatusColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${lastTestType:-"N/A"}"'</td>'
 				echo '</tr>'
 			} >> "${logfile}"
 		fi
