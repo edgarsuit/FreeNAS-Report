@@ -1234,7 +1234,7 @@ function SASSummary () {
 			lastTestStatus="$(echo "${nonJsonSasInfoSmrt}" | grep '# 1' | tr -s " " | cut -d ' ' -sf '8,9,10,11')"
 
 			# Mimic the true/false response expected from json in the future
-			if [ "${lastTestStatus}" = "- [- - -]" ] || 
+			if [ "${lastTestStatus}" = "- [- - -]" ]; then
 				lastTestStatus="true"
 			else
 				# Workaround for some drives that do not support self testing but still report a garbage self test log
