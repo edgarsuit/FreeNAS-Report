@@ -1234,17 +1234,18 @@ function SASSummary () {
 			lastTestStatus="$(echo "${nonJsonSasInfoSmrt}" | grep '# 1' | tr -s " " | cut -d ' ' -sf '8,9,10,11')"
 
 			# Mimic the true/false response expected from json in the future
-			if [ "${lastTestStatus}" = "- [- - -]" ] || [ "${lastTestType}" = "N/A" ]; then
+			if [ "${lastTestStatus}" = "- [- - -]" ] || 
 				lastTestStatus="true"
 			else
-				lastTestStatus="false"
-			fi
-
-			# Workaround for some drives that do not support self testing but still report a garbage self test log
-			# Set last test type to 'N/A' and last test hours to null "" in this case
-			if [ "${lastTestType}" == "Default Self" ]; then
-				lastTestType="N/A"
-				lastTestHours=""
+				# Workaround for some drives that do not support self testing but still report a garbage self test log
+				# Set last test type to 'N/A' and last test hours to null "" in this case.  Do not colorize test status as a failure.
+				if [ "${lastTestType}" == "Default Self" ]; then
+					lastTestType="N/A"
+					lastTestHours=""
+					lastTestStatus="true"
+				else
+					lastTestStatus="false"
+				fi
 			fi
 
 			# Available for any drive smartd knows about
