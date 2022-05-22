@@ -1241,9 +1241,15 @@ function SASSummary () {
 			local lastTestStatus="$(echo "${sasInfoSmrt}" | jq -Mre '.ata_smart_self_test_log.standard.table[0].status.passed | values')"
 
 			#FixMe: relies on non-json output
-			lastTestHours="$(echo "${nonJsonSasInfoSmrt}" | grep '# 1' | tr -s " " | cut -d ' ' -sf '7')"
 			lastTestType="$(echo "${nonJsonSasInfoSmrt}" | grep '# 1' | tr -s " " | cut -d ' ' -sf '3,4')"
-			lastTestStatus="$(echo "${nonJsonSasInfoSmrt}" | grep '# 1' | tr -s " " | cut -d ' ' -sf '8,9,10,11')"
+			local runningNowTest="$(echo "${nonJsonSasInfoSmrt}" | grep '# 1' | tr -s " " | cut -d ' ' -sf '5,6,7,8,9')"
+			if [ "${runningNowTest}" = "Self test in progress ..." ]; then
+				lastTestHours="$(echo "${sasInfoSmrt}" | jq -Mre '.power_on_time.hours | values')"
+				lastTestStatus="$(echo "${nonJsonSasInfoSmrt}" | grep '# 1' | tr -s " " | cut -d ' ' -sf '12,13,14,15')"
+			else
+				lastTestHours="$(echo "${nonJsonSasInfoSmrt}" | grep '# 1' | tr -s " " | cut -d ' ' -sf '7')"
+				lastTestStatus="$(echo "${nonJsonSasInfoSmrt}" | grep '# 1' | tr -s " " | cut -d ' ' -sf '8,9,10,11')"
+			fi
 
 			# Mimic the true/false response expected from json in the future
 			if [ "${lastTestStatus}" = "- [- - -]" ]; then
