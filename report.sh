@@ -1553,6 +1553,7 @@ glabel
 head
 tail
 sendmail
+sort
 )
 if [ "${configBackup}" = "true" ]; then
 commands+=(
@@ -1601,7 +1602,7 @@ readarray -t "drives" <<< "$(for drive in $(sysctl -n kern.disks | sed -e 's:nvd
 	elif echo "${drive}" | grep -q "nvme"; then
 		printf "%s " "${drive}"
 	fi
-done | tr ' ' '\n' | tail -r)"
+done | tr ' ' '\n' | sort -V | sed '/^nvme/!H;//p;$!d;g;s:\n::')"
 
 # Toggles the 'ssdExist' flag to true if SSDs are detected in order to add the summary table
 if [ "${includeSSD}" = "true" ]; then
