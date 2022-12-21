@@ -70,6 +70,8 @@
 # v1.0
 #   - Initial release
 
+# Defaults
+LANG="en_US.UTF-8" # Ensure date works as expected.
 
 # Functions
 function rpConfig () {
