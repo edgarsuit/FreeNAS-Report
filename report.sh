@@ -769,7 +769,7 @@ function SSDSummary () {
 			local testAge=""
 			if [ ! -z "${lastTestHours}" ]; then
 				# Check whether the selftest log times have overflowed after 65,535 hours of total power-on time
-				overflowTest="$((${onHours} - ${lastTestHours}))"
+				overflowTest="$((onHours - lastTestHours))"
 				if [ "${overflowTest}" -gt "65535" ]; then # Correct the overflow if necessary
 					testAge="$(bc <<< "(${onHours} - ${lastTestHours} - 65535) / 24")"
 				else # Normal Case, no overflow
@@ -1035,7 +1035,7 @@ function HDDSummary () {
 			local testAge=""
 			if [ ! -z "${lastTestHours}" ]; then
 				# Check whether the selftest log times have overflowed after 65,535 hours of total power-on time
-				overflowTest="$((${onHours} - ${lastTestHours}))"
+				overflowTest="$((onHours - lastTestHours))"
 				if [ "${overflowTest}" -gt "65535" ]; then # Correct the overflow if necessary
 					testAge="$(bc <<< "(${onHours} - ${lastTestHours} - 65535) / 24")"
 				else # Normal Case, no overflow
@@ -1303,7 +1303,7 @@ function SASSummary () {
 			local testAge=""
 			if [ ! -z "${lastTestHours}" ]; then
 				# Check whether the selftest log times have overflowed after 65,535 hours of total power-on time
-				overflowTest="$((${onHours} - ${lastTestHours}))"
+				overflowTest="$((onHours - lastTestHours))"
 				if [ "${overflowTest}" -gt "65535" ]; then # Correct the overflow if necessary
 					testAge="$(bc <<< "(${onHours} - ${lastTestHours} - 65535) / 24")"
 				else # Normal Case, no overflow
