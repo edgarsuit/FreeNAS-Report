@@ -222,7 +222,9 @@ function ZpoolSummary () {
 	local scrubAgeColor
 	local multiDay
 	local altRow
+	local zfsVersion
 
+	zfsVersion="$(zpool version 2> /dev/null | head -n 1 | sed -e 's:zfs-::')"
 
 	### zpool status summary table
 	{
@@ -245,7 +247,7 @@ function ZpoolSummary () {
 		echo '<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Scrub<br>Errors</th>'
 		echo '<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Last<br>Scrub<br>Age (days)</th>'
 		echo '<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Last<br>Scrub<br>Duration</th>'
-		echo '</tr>'
+		echo "</tr> <!-- ${zfsVersion} -->"
 	} >> "${logfile}"
 
 
@@ -256,32 +258,35 @@ function ZpoolSummary () {
 		status="$(zpool list -H -o health "${pool}")"
 
 		# zpool fragment summary
-		frag="$(zpool list -H -p -o frag "${pool}" | tr -d %% | awk '{print $0 + 0}')"
+		frag="$(zpool list -H -p -o frag "${pool}")"
 		size="$(zpool list -H -o size "${pool}")"
 		allocated="$(zpool list -H -o allocated "${pool}")"
 		free="$(zpool list -H -o free "${pool}")"
 
 		# Total all read, write, and checksum errors per pool
-		errors="$(zpool status "${pool}" | grep -E "(ONLINE|DEGRADED|FAULTED|UNAVAIL|REMOVED)[ \\t]+[0-9]+")"
+		errors="$(zpool status "${pool}" | grep -E "(ONLINE|DEGRADED|FAULTED|UNAVAIL|REMOVED)[ \\t]+[0-9]+" | tr -s '[:blank:]' ' ')"
 		readErrors="0"
-		for err in $(echo "${errors}" | awk '{print $3}'); do
+		for err in $(echo "${errors}" | cut -d ' ' -f "4"); do
 			if echo "${err}" | grep -E -q "[^0-9]+"; then
+				# Assume a non number value is > 1000
 				readErrors="1000"
 				break
 			fi
 			readErrors="$((readErrors + err))"
 		done
 		writeErrors="0"
-		for err in $(echo "${err}ors" | awk '{print $4}'); do
+		for err in $(echo "${errors}" | cut -d ' ' -f "5"); do
 			if echo "${err}" | grep -E -q "[^0-9]+"; then
+				# Assume a non number value is > 1000
 				writeErrors="1000"
 				break
 			fi
 			writeErrors="$((writeErrors + err))"
 		done
 		cksumErrors="0"
-		for err in $(echo "${err}ors" | awk '{print $5}'); do
+		for err in $(echo "${errors}" | cut -d ' ' -f "6"); do
 			if echo "${err}" | grep -E -q "[^0-9]+"; then
+				# Assume a non number value is > 1000
 				cksumErrors="1000"
 				break
 			fi
@@ -301,24 +306,42 @@ function ZpoolSummary () {
 		scrubAge="N/A"
 		scrubTime="N/A"
 		resilver=""
+		local statusOutputLine
+		local scrubYear
+		local scrubMonth
+		local scrubDay
+		local scrubTime
 
 		statusOutput="$(zpool status "${pool}")"
+		statusOutputLine="$(echo "${statusOutput}" | grep "scan:" | sed -e 's:[[:blank:]]\{1,\}: :g' -e 's:^[[:blank:]]*::')"
+
 		# normal status i.e. scrub
-		if [ "$(echo "${statusOutput}" | grep "scan:" | awk '{print $2" "$3}')" = "scrub repaired" ]; then
+		if [ "$(echo "${statusOutputLine}" | cut -d ' ' -f "2,3")" = "scrub repaired" ]; then
 			multiDay="$(echo "${statusOutput}" | grep "scan" | grep -c "days")"
 			scrubRepBytes="$(echo "${statusOutput}" | grep "scan:" | awk '{gsub(/B/,"",$4); print $4}')"
 			if [ "${multiDay}" -ge 1 ] ; then
-				scrubErrors="$(echo "${statusOutput}" | grep "scan:" | awk '{print $10}')"
+				scrubErrors="$(echo "${statusOutputLine}" | cut -d ' ' -f "10")"
 			else
-				scrubErrors="$(echo "${statusOutput}" | grep "scan:" | awk '{print $8}')"
+				scrubErrors="$(echo "${statusOutputLine}" | cut -d ' ' -f "8")"
 			fi
 
 			# Convert time/datestamp format presented by zpool status, compare to current date, calculate scrub age
 			if [ "${multiDay}" -ge 1 ] ; then
-				scrubDate="$(echo "${statusOutput}" | grep "scan:" | awk '{print $17"-"$14"-"$15"_"$16}')"
+				# We should test the version of zfs because there still is no json output
+				scrubYear="$(echo "${statusOutputLine}" | cut -d ' ' -f "17")"
+				scrubMonth="$(echo "${statusOutputLine}" | cut -d ' ' -f "14")"
+				scrubDay="$(echo "${statusOutputLine}" | cut -d ' ' -f "15")"
+				scrubTime="$(echo "${statusOutputLine}" | cut -d ' ' -f "16")"
 			else
-				scrubDate="$(echo "${statusOutput}" | grep "scan:" | awk '{print $15"-"$12"-"$13"_"$14}')"
+				# We should test the version of zfs because there still is no json output
+				scrubYear="$(echo "${statusOutputLine}" | cut -d ' ' -f "15")"
+				scrubMonth="$(echo "${statusOutputLine}" | cut -d ' ' -f "12")"
+				scrubDay="$(echo "${statusOutputLine}" | cut -d ' ' -f "13")"
+				scrubTime="$(echo "${statusOutputLine}" | cut -d ' ' -f "14")"
 			fi
+			scrubDate="${scrubYear}-${scrubMonth}-${scrubDay}_${scrubTime}"
+
+
 			scrubTS="$(date -j -f '%Y-%b-%e_%H:%M:%S' "${scrubDate}" '+%s')"
 			currentTS="${runDate}"
 			scrubAge="$((((currentTS - scrubTS) + 43200) / 86400))"
@@ -329,17 +352,26 @@ function ZpoolSummary () {
 			fi
 
 		# if status is resilvered
-		elif [ "$(echo "${statusOutput}" | grep "scan:" | awk '{print $2}')" = "resilvered" ]; then
+		elif [ "$(echo "${statusOutputLine}" | cut -d ' ' -f "2")" = "resilvered" ]; then
 			resilver="<BR>Resilvered"
-			scrubRepBytes="$(echo "${statusOutput}" | grep "scan:" | awk '{print $3}')"
-			scrubErrors="$(echo "${statusOutput}" | grep "scan:" | awk '{print $7}')"
+			scrubRepBytes="$(echo "${statusOutputLine}" | cut -d ' ' -f "3")"
+			scrubErrors="$(echo "${statusOutputLine}" | cut -d ' ' -f "7")"
 
 			# Convert time/datestamp format presented by zpool status, compare to current date, calculate scrub age
-			scrubDate="$(echo "${statusOutput}" | grep "scan:" | awk '{print $14"-"$11"-"$12"_"$13}')"
+
+			# We should test the version of zfs because there still is no json output
+			scrubYear="$(echo "${statusOutputLine}" | cut -d ' ' -f "14")"
+			scrubMonth="$(echo "${statusOutputLine}" | cut -d ' ' -f "11")"
+			scrubDay="$(echo "${statusOutputLine}" | cut -d ' ' -f "12")"
+			scrubTime="$(echo "${statusOutputLine}" | cut -d ' ' -f "13")"
+
+			scrubDate="${scrubYear}-${scrubMonth}-${scrubDay}_${scrubTime}"
+
+
 			scrubTS="$(date -j -f '%Y-%b-%e_%H:%M:%S' "${scrubDate}" '+%s')"
 			currentTS="${runDate}"
 			scrubAge="$((((currentTS - scrubTS) + 43200) / 86400))"
-			scrubTime="$(echo "${statusOutput}" | grep "scan:" | awk '{print $5}')"
+			scrubTime="$(echo "${statusOutputLine}" | cut -d ' ' -f "5")"
 
 		# Check if resilver is in progress
 		elif [ "$(echo "${statusOutput}"| grep "scan:" | awk '{print $2}')" = "resilver" ]; then
