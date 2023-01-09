@@ -737,11 +737,11 @@ function SSDSummary () {
 	local drive
 	local altRow="false"
     for drive in "${drives[@]}"; do
-		local ssdInfoSmrt="$(smartctl -AHijl selftest --log="devstat" "/dev/${drive}")"
+		local ssdInfoSmrt="$(smartctl -AHijl xselftest,selftest --log="devstat" "/dev/${drive}")"
     	local rotTst="$(echo "${ssdInfoSmrt}" | jq -Mre '.rotation_rate | values')"
     	local scsiTst="$(echo "${ssdInfoSmrt}" | jq -Mre '.device.type | values')"
         if [ "${rotTst}" = "0" ] && [ ! "${scsiTst}" = "scsi" ]; then
-			# For each drive detected, run "smartctl -AHijl selftest" and parse its output.
+			# For each drive detected, run "smartctl -AHijl xselftest,selftest" and parse its output.
 			# Start by parsing out the variables used in other parts of the script.
 			# After parsing the output, compute other values (last test's age, on time in YY-MM-DD-HH).
 			# After these computations, determine the row's background color (alternating as above, subbing in other colors from the palate as needed).
@@ -1017,14 +1017,14 @@ function HDDSummary () {
 	local drive
 	local altRow="false"
 	for drive in "${drives[@]}"; do
-		local hddInfoSmrt="$(smartctl -AHijl selftest "/dev/${drive}")"
+		local hddInfoSmrt="$(smartctl -AHijl xselftest,selftest "/dev/${drive}")"
 		local rotTst="$(echo "${hddInfoSmrt}" | jq -Mre '.rotation_rate | values')"
 		local scsiTst="$(echo "${hddInfoSmrt}" | jq -Mre '.device.type | values')"
 		if [ -z "${rotTst}" ] && [ ! -z "$(echo "${hddInfoSmrt}" | jq -Mre '.ata_smart_attributes.table[]? | select(.name == "Spin_Up_Time") | .id | values')" ]; then
 			rotTst="N/R"
 		fi
 		if [ ! "${rotTst:="0"}" = "0" ] && [ ! "${scsiTst}" = "scsi" ]; then
-			# For each drive detected, run "smartctl -AHijl selftest" and parse its output.
+			# For each drive detected, run "smartctl -AHijl xselftest,selftest" and parse its output.
 			# After parsing the output, compute other values (last test's age, on time in YY-MM-DD-HH).
 			# After these computations, determine the row's background color (alternating as above, subbing in other colors from the palate as needed).
 			# Finally, print the HTML code for the current row of the table with all the gathered data.
@@ -1258,11 +1258,11 @@ function SASSummary () {
 	local drive
 	local altRow="false"
 	for drive in "${drives[@]}"; do
-		local sasInfoSmrt="$(smartctl -AHijl selftest "/dev/${drive}")"
-		local nonJsonSasInfoSmrt="$(smartctl -Al error -l selftest "/dev/${drive}")"
+		local sasInfoSmrt="$(smartctl -AHijl xselftest,selftest "/dev/${drive}")"
+		local nonJsonSasInfoSmrt="$(smartctl -Al error -l xselftest,selftest "/dev/${drive}")"
 		local rotTst="$(echo "${sasInfoSmrt}" | jq -Mre '.device.type | values')"
 		if [ "${rotTst}" = "scsi" ]; then
-			# For each drive detected, run "smartctl -AHijl selftest" and parse its output.
+			# For each drive detected, run "smartctl -AHijl xselftest,selftest" and parse its output.
 			# After parsing the output, compute other values (last test's age, on time in YY-MM-DD-HH).
 			# After these computations, determine the row's background color (alternating as above, subbing in other colors from the palate as needed).
 			# Finally, print the HTML code for the current row of the table with all the gathered data.
@@ -1765,7 +1765,7 @@ done
 ### SMART status for each drive
 for drive in "${drives[@]}"; do
     smartOut="$(smartctl --json=u -i "/dev/${drive}")" # FixMe: smart support flag is not yet implemented in smartctl json output.
-    smartTestOut="$(smartctl -l selftest "/dev/${drive}")"
+    smartTestOut="$(smartctl -l xselftest,selftest "/dev/${drive}")"
 
     if echo "${smartOut}" | grep "SMART support is:" | grep -q "Enabled"; then # FixMe: smart support flag is not yet implemented in smartctl json output.
         # Gather brand and serial number of each drive
