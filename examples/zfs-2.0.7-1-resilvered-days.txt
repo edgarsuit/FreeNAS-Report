@@ -1,0 +1,4 @@
+pool: pool1
+state: ONLINE
+scan: resilvered 2.31T in 1 days 02:55:32 with 0 errors on Sat Dec 24 02:33:08 2022
+config:
