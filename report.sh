@@ -167,8 +167,8 @@ function ConfigBackup () {
 			if [ "${emailBackup}" = "true" ]; then
 				# Write MIME section header for file attachment (encoded with base64)
 				echo "--${boundary}"
-				echo "Content-Type: application/tar+gzip name='"'${filename}.tar.gz'"'"
-				echo "Content-Disposition: attachment; filename='"'${filename}.tar.gz'"'"
+				echo 'Content-Type: application/tar+gzip name="'"${filename}.tar.gz"'"'
+				echo 'Content-Disposition: attachment; filename="'"${filename}.tar.gz"'"'
 				echo -e "Content-Transfer-Encoding: base64\n"
 				base64 "${tarfile}"
 			fi
