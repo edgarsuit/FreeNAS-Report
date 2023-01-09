@@ -208,7 +208,7 @@ function ZpoolSummary () {
 	local scrubRepBytes
 	local scrubErrors
 	local scrubAge
-	local scrubTime
+	local scrubDuration
 	local resilver
 	local statusOutput
 	local bgColor
@@ -304,7 +304,7 @@ function ZpoolSummary () {
 		scrubRepBytes="N/A"
 		scrubErrors="N/A"
 		scrubAge="N/A"
-		scrubTime="N/A"
+		scrubDuration="N/A"
 		resilver=""
 		local statusOutputLine
 		local scrubYear
@@ -346,9 +346,9 @@ function ZpoolSummary () {
 			currentTS="${runDate}"
 			scrubAge="$((((currentTS - scrubTS) + 43200) / 86400))"
 			if [ "${multiDay}" -ge 1 ] ; then
-				scrubTime="$(echo "${statusOutput}" | grep "scan" | awk '{print $6" "$7" "$8}')"
+				scrubDuration="$(echo "${statusOutput}" | grep "scan" | awk '{print $6" "$7" "$8}')"
 			else
-				scrubTime="$(echo "${statusOutput}" | grep "scan" | awk '{print $6}')"
+				scrubDuration="$(echo "${statusOutput}" | grep "scan" | awk '{print $6}')"
 			fi
 
 		# if status is resilvered
@@ -371,13 +371,13 @@ function ZpoolSummary () {
 			scrubTS="$(date -j -f '%Y-%b-%e_%H:%M:%S' "${scrubDate}" '+%s')"
 			currentTS="${runDate}"
 			scrubAge="$((((currentTS - scrubTS) + 43200) / 86400))"
-			scrubTime="$(echo "${statusOutputLine}" | cut -d ' ' -f "5")"
+			scrubDuration="$(echo "${statusOutputLine}" | cut -d ' ' -f "5")"
 
 		# Check if resilver is in progress
 		elif [ "$(echo "${statusOutput}"| grep "scan:" | awk '{print $2}')" = "resilver" ]; then
 			scrubRepBytes="Resilver In Progress"
 			scrubAge="$(echo "${statusOutput}" | grep "resilvered," | awk '{print $3" done"}')"
-			scrubTime="$(echo "${statusOutput}" | grep "resilvered," | awk '{print $5"<br>to go"}')"
+			scrubDuration="$(echo "${statusOutput}" | grep "resilvered," | awk '{print $5"<br>to go"}')"
 
 		# Check if scrub is in progress
 		elif [ "$(echo "${statusOutput}"| grep "scan:" | awk '{print $4}')" = "progress" ]; then
@@ -385,9 +385,9 @@ function ZpoolSummary () {
 			scrubErrors="$(echo "${statusOutput}" | grep "repaired," | awk '{print $1" repaired"}')"
 			scrubAge="$(echo "${statusOutput}" | grep "repaired," | awk '{print $3" done"}')"
 			if [ "$(echo "${statusOutput}" | grep "repaired," | awk '{print $5}')" = "0" ]; then
-				scrubTime="$(echo "${statusOutput}" | grep "repaired," | awk '{print $7"<br>to go"}')"
+				scrubDuration="$(echo "${statusOutput}" | grep "repaired," | awk '{print $7"<br>to go"}')"
 			else
-				scrubTime="$(echo "${statusOutput}" | grep "repaired," | awk '{print $5" "$6" "$7"<br>to go"}')"
+				scrubDuration="$(echo "${statusOutput}" | grep "repaired," | awk '{print $5" "$6" "$7"<br>to go"}')"
 			fi
 		fi
 
@@ -466,7 +466,7 @@ function ZpoolSummary () {
 			echo '<td style="text-align:center; background-color:'"${scrubRepBytesColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${scrubRepBytes}"'</td>'
 			echo '<td style="text-align:center; background-color:'"${scrubErrorsColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${scrubErrors}"'</td>'
 			echo '<td style="text-align:center; background-color:'"${scrubAgeColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${scrubAge}"'</td>'
-			echo '<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${scrubTime}"'</td>'
+			echo '<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${scrubDuration}"'</td>'
 			echo '</tr>'
 		} >> "${logfile}"
 	done
