@@ -793,9 +793,15 @@ EOF
 			local device="${drive}"
 
 			# Available if any tests have completed
-			local lastTestHours="$(echo "${ssdInfoSmrt}" | jq -Mre '.ata_smart_self_test_log.standard.table[0].lifetime_hours | values')"
-			local lastTestType="$(echo "${ssdInfoSmrt}" | jq -Mre '.ata_smart_self_test_log.standard.table[0].type.string | values')"
-			local lastTestStatus="$(echo "${ssdInfoSmrt}" | jq -Mre '.ata_smart_self_test_log.standard.table[0].status.passed | values')"
+			if [ ! -z "$(echo "${ssdInfoSmrt}" | jq -Mre '.ata_smart_self_test_log.extended.table | values')" ]; then
+				local lastTestHours="$(echo "${ssdInfoSmrt}" | jq -Mre '.ata_smart_self_test_log.extended.table[0].lifetime_hours | values')"
+				local lastTestType="$(echo "${ssdInfoSmrt}" | jq -Mre '.ata_smart_self_test_log.extended.table[0].type.string | values')"
+				local lastTestStatus="$(echo "${ssdInfoSmrt}" | jq -Mre '.ata_smart_self_test_log.extended.table[0].status.passed | values')"
+			else
+				local lastTestHours="$(echo "${ssdInfoSmrt}" | jq -Mre '.ata_smart_self_test_log.standard.table[0].lifetime_hours | values')"
+				local lastTestType="$(echo "${ssdInfoSmrt}" | jq -Mre '.ata_smart_self_test_log.standard.table[0].type.string | values')"
+				local lastTestStatus="$(echo "${ssdInfoSmrt}" | jq -Mre '.ata_smart_self_test_log.standard.table[0].status.passed | values')"
+			fi
 
 			# Available for any drive smartd knows about
 			if [ "$(echo "${ssdInfoSmrt}" | jq -Mre '.smart_status.passed | values')" = "true" ]; then
@@ -1080,9 +1086,15 @@ EOF
 			local device="${drive}"
 
 			# Available if any tests have completed
-			local lastTestHours="$(echo "${hddInfoSmrt}" | jq -Mre '.ata_smart_self_test_log.standard.table[0].lifetime_hours | values')"
-			local lastTestType="$(echo "${hddInfoSmrt}" | jq -Mre '.ata_smart_self_test_log.standard.table[0].type.string | values')"
-			local lastTestStatus="$(echo "${hddInfoSmrt}" | jq -Mre '.ata_smart_self_test_log.standard.table[0].status.passed | values')"
+			if [ ! -z "$(echo "${hddInfoSmrt}" | jq -Mre '.ata_smart_self_test_log.extended.table | values')" ]; then
+				local lastTestHours="$(echo "${hddInfoSmrt}" | jq -Mre '.ata_smart_self_test_log.extended.table[0].lifetime_hours | values')"
+				local lastTestType="$(echo "${hddInfoSmrt}" | jq -Mre '.ata_smart_self_test_log.extended.table[0].type.string | values')"
+				local lastTestStatus="$(echo "${hddInfoSmrt}" | jq -Mre '.ata_smart_self_test_log.extended.table[0].status.passed | values')"
+			else
+				local lastTestHours="$(echo "${hddInfoSmrt}" | jq -Mre '.ata_smart_self_test_log.standard.table[0].lifetime_hours | values')"
+				local lastTestType="$(echo "${hddInfoSmrt}" | jq -Mre '.ata_smart_self_test_log.standard.table[0].type.string | values')"
+				local lastTestStatus="$(echo "${hddInfoSmrt}" | jq -Mre '.ata_smart_self_test_log.standard.table[0].status.passed | values')"
+			fi
 
 			# Available for any drive smartd knows about
 			if [ "$(echo "${hddInfoSmrt}" | jq -Mre '.smart_status.passed | values')" = "true" ]; then
@@ -1322,9 +1334,15 @@ EOF
 			local device="${drive}"
 
 			# Available if any tests have completed #FixMe this info is not currently exported in json for sas drives
-			local lastTestHours="$(echo "${sasInfoSmrt}" | jq -Mre '.ata_smart_self_test_log.standard.table[0].lifetime_hours | values')"
-			local lastTestType="$(echo "${sasInfoSmrt}" | jq -Mre '.ata_smart_self_test_log.standard.table[0].type.string | values')"
-			local lastTestStatus="$(echo "${sasInfoSmrt}" | jq -Mre '.ata_smart_self_test_log.standard.table[0].status.passed | values')"
+			if [ ! -z "$(echo "${sasInfoSmrt}" | jq -Mre '.ata_smart_self_test_log.extended.table | values')" ]; then
+				local lastTestHours="$(echo "${sasInfoSmrt}" | jq -Mre '.ata_smart_self_test_log.extended.table[0].lifetime_hours | values')"
+				local lastTestType="$(echo "${sasInfoSmrt}" | jq -Mre '.ata_smart_self_test_log.extended.table[0].type.string | values')"
+				local lastTestStatus="$(echo "${sasInfoSmrt}" | jq -Mre '.ata_smart_self_test_log.extended.table[0].status.passed | values')"
+			else
+				local lastTestHours="$(echo "${sasInfoSmrt}" | jq -Mre '.ata_smart_self_test_log.standard.table[0].lifetime_hours | values')"
+				local lastTestType="$(echo "${sasInfoSmrt}" | jq -Mre '.ata_smart_self_test_log.standard.table[0].type.string | values')"
+				local lastTestStatus="$(echo "${sasInfoSmrt}" | jq -Mre '.ata_smart_self_test_log.standard.table[0].status.passed | values')"
+			fi
 
 			#FixMe: relies on non-json output
 			lastTestType="$(echo "${nonJsonSasInfoSmrt}" | grep '# 1' | tr -s " " | cut -d ' ' -sf '3,4')"
