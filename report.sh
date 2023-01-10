@@ -193,6 +193,7 @@ function ConfigBackup () {
 }
 
 function ZpoolSummary () {
+	{
 	local pool
 	local status
 	local frag
@@ -223,6 +224,7 @@ function ZpoolSummary () {
 	local multiDay
 	local altRow
 	local zfsVersion
+	}
 
 	zfsVersion="$(zpool version 2> /dev/null | head -n 1 | sed -e 's:zfs-::')"
 
@@ -317,6 +319,7 @@ function ZpoolSummary () {
 
 		# normal status i.e. scrub
 		if [ "$(echo "${statusOutputLine}" | cut -d ' ' -f "2,3")" = "scrub repaired" ]; then
+			{
 			multiDay="$(echo "${statusOutput}" | grep "scan" | grep -c "days")"
 			scrubRepBytes="$(echo "${statusOutput}" | grep "scan:" | awk '{gsub(/B/,"",$4); print $4}')"
 			if [ "${multiDay}" -ge 1 ] ; then
@@ -350,9 +353,11 @@ function ZpoolSummary () {
 			else
 				scrubDuration="$(echo "${statusOutput}" | grep "scan" | awk '{print $6}')"
 			fi
+			}
 
 		# if status is resilvered
 		elif [ "$(echo "${statusOutputLine}" | cut -d ' ' -f "2")" = "resilvered" ]; then
+			{
 			resilver="<BR>Resilvered"
 			scrubRepBytes="$(echo "${statusOutputLine}" | cut -d ' ' -f "3")"
 			scrubErrors="$(echo "${statusOutputLine}" | cut -d ' ' -f "7")"
@@ -372,15 +377,19 @@ function ZpoolSummary () {
 			currentTS="${runDate}"
 			scrubAge="$((((currentTS - scrubTS) + 43200) / 86400))"
 			scrubDuration="$(echo "${statusOutputLine}" | cut -d ' ' -f "5")"
+			}
 
 		# Check if resilver is in progress
 		elif [ "$(echo "${statusOutput}"| grep "scan:" | awk '{print $2}')" = "resilver" ]; then
+			{
 			scrubRepBytes="Resilver In Progress"
 			scrubAge="$(echo "${statusOutput}" | grep "resilvered," | awk '{print $3" done"}')"
 			scrubDuration="$(echo "${statusOutput}" | grep "resilvered," | awk '{print $5"<br>to go"}')"
+			}
 
 		# Check if scrub is in progress
 		elif [ "$(echo "${statusOutput}"| grep "scan:" | awk '{print $4}')" = "progress" ]; then
+			{
 			scrubRepBytes="Scrub In Progress"
 			scrubErrors="$(echo "${statusOutput}" | grep "repaired," | awk '{print $1" repaired"}')"
 			scrubAge="$(echo "${statusOutput}" | grep "repaired," | awk '{print $3" done"}')"
@@ -389,8 +398,10 @@ function ZpoolSummary () {
 			else
 				scrubDuration="$(echo "${statusOutput}" | grep "repaired," | awk '{print $5" "$6" "$7"<br>to go"}')"
 			fi
+			}
 		fi
 
+		{
 		# Set the row background color
 		if [ "${altRow}" = "false" ]; then
 			local bgColor="#ffffff"
@@ -449,6 +460,7 @@ function ZpoolSummary () {
 		else
 			scrubAgeColor="${bgColor}"
 		fi
+		}
 
 		{
 			# Use the information gathered above to write the date to the current table row
