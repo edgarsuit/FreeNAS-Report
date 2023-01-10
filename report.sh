@@ -320,13 +320,8 @@ function ZpoolSummary () {
 		# normal status i.e. scrub
 		if [ "$(echo "${statusOutputLine}" | cut -d ' ' -f "2,3")" = "scrub repaired" ]; then
 			{
-			multiDay="$(echo "${statusOutput}" | grep "scan" | grep -c "days")"
-			scrubRepBytes="$(echo "${statusOutput}" | grep "scan:" | awk '{gsub(/B/,"",$4); print $4}')"
-			if [ "${multiDay}" -ge 1 ] ; then
-				scrubErrors="$(echo "${statusOutputLine}" | cut -d ' ' -f "10")"
-			else
-				scrubErrors="$(echo "${statusOutputLine}" | cut -d ' ' -f "8")"
-			fi
+			multiDay="$(echo "${statusOutputLine}" | grep -c "days")"
+			scrubRepBytes="$(echo "${statusOutputLine}" | cut -d ' ' -f "4" | sed -e 's:B::')"
 
 			# Convert time/datestamp format presented by zpool status, compare to current date, calculate scrub age
 			if [ "${multiDay}" -ge 1 ] ; then
@@ -335,12 +330,18 @@ function ZpoolSummary () {
 				scrubMonth="$(echo "${statusOutputLine}" | cut -d ' ' -f "14")"
 				scrubDay="$(echo "${statusOutputLine}" | cut -d ' ' -f "15")"
 				scrubTime="$(echo "${statusOutputLine}" | cut -d ' ' -f "16")"
+
+				scrubDuration="$(echo "${statusOutputLine}" | cut -d ' ' -f "6-8")"
+				scrubErrors="$(echo "${statusOutputLine}" | cut -d ' ' -f "10")"
 			else
 				# We should test the version of zfs because there still is no json output
 				scrubYear="$(echo "${statusOutputLine}" | cut -d ' ' -f "15")"
 				scrubMonth="$(echo "${statusOutputLine}" | cut -d ' ' -f "12")"
 				scrubDay="$(echo "${statusOutputLine}" | cut -d ' ' -f "13")"
 				scrubTime="$(echo "${statusOutputLine}" | cut -d ' ' -f "14")"
+
+				scrubDuration="$(echo "${statusOutputLine}" | cut -d ' ' -f "6")"
+				scrubErrors="$(echo "${statusOutputLine}" | cut -d ' ' -f "8")"
 			fi
 			scrubDate="${scrubYear}-${scrubMonth}-${scrubDay}_${scrubTime}"
 
@@ -348,11 +349,6 @@ function ZpoolSummary () {
 			scrubTS="$(date -j -f '%Y-%b-%e_%H:%M:%S' "${scrubDate}" '+%s')"
 			currentTS="${runDate}"
 			scrubAge="$((((currentTS - scrubTS) + 43200) / 86400))"
-			if [ "${multiDay}" -ge 1 ] ; then
-				scrubDuration="$(echo "${statusOutput}" | grep "scan" | awk '{print $6" "$7" "$8}')"
-			else
-				scrubDuration="$(echo "${statusOutput}" | grep "scan" | awk '{print $6}')"
-			fi
 			}
 
 		# if status is resilvered
@@ -391,23 +387,29 @@ function ZpoolSummary () {
 			}
 
 		# Check if resilver is in progress
-		elif [ "$(echo "${statusOutput}"| grep "scan:" | awk '{print $2}')" = "resilver" ]; then
+		elif [ "$(echo "${statusOutputLine}" | cut -d ' ' -f "2")" = "resilver" ]; then
 			{
 			scrubRepBytes="Resilver In Progress"
-			scrubAge="$(echo "${statusOutput}" | grep "resilvered," | awk '{print $3" done"}')"
-			scrubDuration="$(echo "${statusOutput}" | grep "resilvered," | awk '{print $5"<br>to go"}')"
+			statusOutputLine="$(echo "${statusOutput}" | grep "resilvered," | sed -e 's:[[:blank:]]\{1,\}: :g' -e 's:^[[:blank:]]*::')"
+
+			scrubAge="$(echo "${statusOutputLine}" | cut -d ' ' -f "3") done"
+			scrubDuration="$(echo "${statusOutputLine}" | cut -d ' ' -f "5") <br> to go"
 			}
 
 		# Check if scrub is in progress
-		elif [ "$(echo "${statusOutput}"| grep "scan:" | awk '{print $4}')" = "progress" ]; then
+		elif [ "$(echo "${statusOutputLine}" | cut -d ' ' -f "4")" = "progress" ]; then
 			{
 			scrubRepBytes="Scrub In Progress"
-			scrubErrors="$(echo "${statusOutput}" | grep "repaired," | awk '{print $1" repaired"}')"
-			scrubAge="$(echo "${statusOutput}" | grep "repaired," | awk '{print $3" done"}')"
-			if [ "$(echo "${statusOutput}" | grep "repaired," | awk '{print $5}')" = "0" ]; then
-				scrubDuration="$(echo "${statusOutput}" | grep "repaired," | awk '{print $7"<br>to go"}')"
+			statusOutputLine="$(echo "${statusOutput}" | grep "repaired," | sed -e 's:[[:blank:]]\{1,\}: :g' -e 's:^[[:blank:]]*::')"
+
+			scrubErrors="$(echo "${statusOutputLine}" | cut -d ' ' -f "1") repaired"
+			scrubAge="$(echo "${statusOutputLine}" | cut -d ' ' -f "3") done"
+
+			# FixMe: no example of this to test against
+			if [ "$(echo "${statusOutputLine}" | cut -d ' ' -f "5")" = "0" ]; then
+				scrubDuration="$(echo "${statusOutputLine}" | cut -d ' ' -f "7") <br> to go"
 			else
-				scrubDuration="$(echo "${statusOutput}" | grep "repaired," | awk '{print $5" "$6" "$7"<br>to go"}')"
+				scrubDuration="$(echo "${statusOutputLine}" | cut -d ' ' -f "5") <br> to go"
 			fi
 			}
 		fi
@@ -466,7 +468,7 @@ function ZpoolSummary () {
 			scrubErrorsColor="${bgColor}"
 		fi
 
-		if [ "$(echo "$scrubAge" | awk '{print int($1)}')" -gt "${scrubAgeWarn}" ]; then
+		if [ "$(bc <<< "scale=0;(${scrubAge//%//}+0)/1")" -gt "${scrubAgeWarn}" ]; then
 			scrubAgeColor="${warnColor}"
 		else
 			scrubAgeColor="${bgColor}"
@@ -1599,7 +1601,6 @@ date
 sysctl
 sed
 grep
-awk
 zpool
 cut
 tr
