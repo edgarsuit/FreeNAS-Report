@@ -148,12 +148,15 @@ function ConfigBackup () {
 
         # Config integrity check failed, set MIME content type to html and print warning
         {
-            echo "--${boundary}"
-            echo "Content-Transfer-Encoding: 8bit"
-            echo -e "Content-Type: text/html; charset=utf-8\n"
-            echo "<b>Automatic backup of TrueNAS configuration has failed! The configuration file is corrupted!</b>"
-            echo "<b>You should correct this problem as soon as possible!</b>"
-            echo "<br>"
+			tee <<- EOF
+				--${boundary}
+				Content-Transfer-Encoding: 8bit
+				Content-Type: text/html; charset=utf-8
+
+				<b>Automatic backup of TrueNAS configuration has failed! The configuration file is corrupted!</b>
+				<b>You should correct this problem as soon as possible!</b>
+				<br>
+EOF
         } >> "${logfile}"
     else
         # Config integrity check passed; copy config db, generate checksums, make .tar.gz archive
@@ -168,17 +171,23 @@ function ConfigBackup () {
         {
 			if [ "${emailBackup}" = "true" ]; then
 				# Write MIME section header for file attachment (encoded with base64)
-				echo "--${boundary}"
-				echo -e "Content-Type: application/tar+gzip\n"
-				echo "Content-Transfer-Encoding: base64"
-				echo "Content-Disposition: attachment; filename=${filename}.tar.gz"
+				tee <<- EOF
+					--${boundary}
+					Content-Type: application/tar+gzip name="${filename}.tar.gz"
+					Content-Disposition: attachment; filename="${filename}.tar.gz"
+					Content-Transfer-Encoding: base64
+
+EOF
 				base64 "${tarfile}"
 			fi
 
             # Write MIME section header for html content to come below
-            echo "--${boundary}"
-            echo "Content-Transfer-Encoding: 8bit"
-            echo -e "Content-Type: text/html; charset=utf-8\n"
+				tee <<- EOF
+					--${boundary}
+					Content-Transfer-Encoding: 8bit
+					Content-Type: text/html; charset="utf-8"
+
+EOF
         } >> "${logfile}"
 
         # If logfile saving is enabled, copy .tar.gz file to specified location before it (and everything else) is removed below
@@ -1612,6 +1621,7 @@ head
 tail
 sendmail
 sort
+tee
 )
 if [ "${configBackup}" = "true" ]; then
 commands+=(
@@ -1703,13 +1713,15 @@ readarray -t "pools" <<< "$(zpool list -H -o name)"
 ###### Email pre-formatting
 ### Set email headers
 {
-    echo "From: ${fromName:="${host}"} <${fromEmail:="root@$(hostname)"}>"
-    echo "To: ${email}"
-    echo "Subject: ${subject}"
-    echo "MIME-Version: 1.0"
-    echo 'Content-Type: multipart/mixed; boundary="'"${boundary}"'"'
-    echo "Date: $(date -Rr "${runDate}")"
-    echo "Message-Id: <${messageid}@${host}>"
+tee <<- EOF
+	From: ${fromName:="${host}"} <${fromEmail:="root@$(hostname)"}>
+	To: ${email}
+	Subject: ${subject}
+	MIME-Version: 1.0
+	Content-Type: multipart/mixed; boundary="${boundary}"
+	Date: $(date -Rr "${runDate}")
+	Message-Id: <${messageid}@${host}>
+EOF
 } > "${logfile}"
 
 
@@ -1721,9 +1733,12 @@ if [ "${configBackup}" = "true" ]; then
 else
     # Config backup disabled; set up for html-type content
     {
-        echo "--${boundary}"
-        echo "Content-Transfer-Encoding: 8bit"
-        echo -e "Content-Type: text/html; charset=utf-8\n"
+	tee <<- EOF
+		--${boundary}
+		Content-Transfer-Encoding: 8bit
+		Content-Type: text/html; charset="utf-8"
+
+EOF
     } >> "${logfile}"
 fi
 
@@ -1826,7 +1841,7 @@ for drive in "${drives[@]}"; do
     fi
 done
 
-# Remove some un-needed junk from the output
+# Remove some un-needed labels from the output
 sed -i '' -e '/smartctl [6-9].[0-9]/d' "${logfile}"
 sed -i '' -e '/Copyright/d' "${logfile}"
 sed -i '' -e '/=== START OF READ/d' "${logfile}"
