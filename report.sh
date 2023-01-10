@@ -537,7 +537,7 @@ function NVMeSummary () {
 
 			  <th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Temp</th> <!-- Temp -->
 
-			  <th style="text-align:center; width:120px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Power-On<br>Time<br>('"$powerTimeFormat"')</th> <!-- Power-On Time -->
+			  <th style="text-align:center; width:120px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Power-On<br>Time<br>($powerTimeFormat)</th> <!-- Power-On Time -->
 
 			  <th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Power<br>Cycle<br>Count</th> <!-- Power Cycle Count -->
 
