@@ -359,24 +359,35 @@ function ZpoolSummary () {
 		elif [ "$(echo "${statusOutputLine}" | cut -d ' ' -f "2")" = "resilvered" ]; then
 			{
 			resilver="<BR>Resilvered"
+			multiDay="$(echo "${statusOutput}" | grep "scan" | grep -c "days")"
 			scrubRepBytes="$(echo "${statusOutputLine}" | cut -d ' ' -f "3")"
-			scrubErrors="$(echo "${statusOutputLine}" | cut -d ' ' -f "7")"
 
 			# Convert time/datestamp format presented by zpool status, compare to current date, calculate scrub age
+			if [ "${multiDay}" -ge "1" ] ; then
+				# We should test the version of zfs because there still is no json output
+				scrubYear="$(echo "${statusOutputLine}" | cut -d ' ' -f "16")"
+				scrubMonth="$(echo "${statusOutputLine}" | cut -d ' ' -f "13")"
+				scrubDay="$(echo "${statusOutputLine}" | cut -d ' ' -f "14")"
+				scrubTime="$(echo "${statusOutputLine}" | cut -d ' ' -f "15")"
 
-			# We should test the version of zfs because there still is no json output
-			scrubYear="$(echo "${statusOutputLine}" | cut -d ' ' -f "14")"
-			scrubMonth="$(echo "${statusOutputLine}" | cut -d ' ' -f "11")"
-			scrubDay="$(echo "${statusOutputLine}" | cut -d ' ' -f "12")"
-			scrubTime="$(echo "${statusOutputLine}" | cut -d ' ' -f "13")"
+				scrubDuration="$(echo "${statusOutputLine}" | cut -d ' ' -f "5-7")"
+				scrubErrors="$(echo "${statusOutputLine}" | cut -d ' ' -f "9")"
+			else
+				# We should test the version of zfs because there still is no json output
+				scrubYear="$(echo "${statusOutputLine}" | cut -d ' ' -f "14")"
+				scrubMonth="$(echo "${statusOutputLine}" | cut -d ' ' -f "11")"
+				scrubDay="$(echo "${statusOutputLine}" | cut -d ' ' -f "12")"
+				scrubTime="$(echo "${statusOutputLine}" | cut -d ' ' -f "13")"
 
+				scrubDuration="$(echo "${statusOutputLine}" | cut -d ' ' -f "5")"
+				scrubErrors="$(echo "${statusOutputLine}" | cut -d ' ' -f "7")"
+			fi
 			scrubDate="${scrubYear}-${scrubMonth}-${scrubDay}_${scrubTime}"
 
 
 			scrubTS="$(date -j -f '%Y-%b-%e_%H:%M:%S' "${scrubDate}" '+%s')"
 			currentTS="${runDate}"
 			scrubAge="$((((currentTS - scrubTS) + 43200) / 86400))"
-			scrubDuration="$(echo "${statusOutputLine}" | cut -d ' ' -f "5")"
 			}
 
 		# Check if resilver is in progress
