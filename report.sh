@@ -417,9 +417,12 @@ EOF
 			scrubErrors="$(echo "${statusOutputLine}" | cut -d ' ' -f "1") repaired"
 			scrubAge="$(echo "${statusOutputLine}" | cut -d ' ' -f "3") done"
 
-			# FixMe: no example of this to test against
 			if [ "$(echo "${statusOutputLine}" | cut -d ' ' -f "5")" = "0" ]; then
 				scrubDuration="$(echo "${statusOutputLine}" | cut -d ' ' -f "7") <br> to go"
+			elif [ "$(echo "${statusOutputLine}" | cut -d ' ' -f "5")" = "no" ]; then
+				scrubDuration="Calculating"
+			elif [ "$(echo "${statusOutputLine}" | cut -d ' ' -f "6")" = "days" ]; then
+				scrubDuration="$(echo "${statusOutputLine}" | cut -d ' ' -f "5") <br> days to go"
 			else
 				scrubDuration="$(echo "${statusOutputLine}" | cut -d ' ' -f "5") <br> to go"
 			fi
