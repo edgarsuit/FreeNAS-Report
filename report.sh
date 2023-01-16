@@ -1316,7 +1316,13 @@ messageid="$(dbus-uuidgen)"
 
 # Reorders the drives in ascending order
 # FixMe: smart support flag is not yet implemented in smartctl json output.
-readarray -t "drives" <<< "$(for drive in $(sysctl -n kern.disks | sed -e 's:nvd:nvme:g'); do
+if [ "${systemType}" = "BSD" ]; then
+	localDriveList="$(sysctl -n kern.disks | sed -e 's:nvd:nvme:g')"
+else
+	localDriveList="$(ls -l "/sys/block" | grep -v 'devices/virtual' | cut -d ' ' -f "9")"
+fi
+
+readarray -t "drives" <<< "$(for drive in ${localDriveList}; do
 	if smartctl -i "/dev/${drive}" | grep -q "SMART support is: Enabled"; then
 		printf "%s " "${drive}"
 	elif echo "${drive}" | grep -q "nvme"; then
@@ -1477,13 +1483,24 @@ for drive in "${drives[@]}"; do
 done
 
 # Remove some un-needed junk from the output
-sed -i '' -e '/smartctl [6-9].[0-9]/d' "${logfile}"
-sed -i '' -e '/Copyright/d' "${logfile}"
-sed -i '' -e '/=== START OF READ/d' "${logfile}"
-sed -i '' -e '/=== START OF SMART DATA SECTION ===/d' "${logfile}"
-sed -i '' -e '/SMART Attributes Data/d' "${logfile}"
-sed -i '' -e '/Vendor Specific SMART/d' "${logfile}"
-sed -i '' -e '/SMART Error Log Version/d' "${logfile}"
+if [ "${systemType}" = "BSD" ]; then
+	sed -i '' -e '/smartctl [6-9].[0-9]/d' "${logfile}"
+	sed -i '' -e '/Copyright/d' "${logfile}"
+	sed -i '' -e '/=== START OF READ/d' "${logfile}"
+	sed -i '' -e '/=== START OF SMART DATA SECTION ===/d' "${logfile}"
+	sed -i '' -e '/SMART Attributes Data/d' "${logfile}"
+	sed -i '' -e '/Vendor Specific SMART/d' "${logfile}"
+	sed -i '' -e '/SMART Error Log Version/d' "${logfile}"
+else
+	sed -i -e '/smartctl [6-9].[0-9]/d' "${logfile}"
+	sed -i -e '/Copyright/d' "${logfile}"
+	sed -i -e '/=== START OF READ/d' "${logfile}"
+	sed -i -e '/=== START OF SMART DATA SECTION ===/d' "${logfile}"
+	sed -i -e '/SMART Attributes Data/d' "${logfile}"
+	sed -i -e '/Vendor Specific SMART/d' "${logfile}"
+	sed -i -e '/SMART Error Log Version/d' "${logfile}"
+
+fi
 
 ### End details section, close MIME section
 (
