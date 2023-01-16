@@ -183,10 +183,10 @@ EOF
 			fi
 
             # Write MIME section header for html content to come below
-				tee <<- EOF
-					--${boundary}
-					Content-Transfer-Encoding: 8bit
-					Content-Type: text/html; charset="utf-8"
+			tee <<- EOF
+				--${boundary}
+				Content-Transfer-Encoding: 8bit
+				Content-Type: text/html; charset="utf-8"
 
 EOF
         } >> "${logfile}"
@@ -1683,15 +1683,75 @@ function ReportUPS () {
     echo "<br><br>" >> "${logfile}"
 }
 
+function DumpFiles () {
+	local filename="dumpfiles"
+    local dumpPath="/tmp/${filename}/"
+	local tarfile="/tmp/${filename}.tgz"
+	local zfsVersion
+	local drive
+	local infoSmrtJson
+	local infoSmrt
+
+	zfsVersion="$(zpool version 2> /dev/null | head -n 1)"
+
+	# Make the dump path
+	mkdir -p "${dumpPath}"
+
+	# Grab the config file
+	cp "${configFile}" "${dumpPath}"
+
+	# Dump zpool status
+	zpool status > "${dumpPath}${zfsVersion}.txt"
+
+	# Dump drive data
+	{
+		for drive in "${drives[@]}"; do
+			infoSmrtJson="$(smartctl -AHijl xselftest,selftest --quietmode=noserial "/dev/${drive}")"
+			infoSmrt="$(smartctl -AHil error -l xselftest,selftest --quietmode=noserial "/dev/${drive}")"
+
+			echo "${infoSmrtJson}" > "${dumpPath}${drive}.json.txt"
+			echo "${infoSmrt}" > "${dumpPath}${drive}.txt"
+		done
+	}
+
+	(
+		cd "${dumpPath}.." || exit;
+		tar -czf "${tarfile}" "${filename}"
+	)
+
+	{
+		# Write MIME section header for file attachment (encoded with base64)
+		tee <<- EOF
+			--${boundary}
+			Content-Type: application/tar+gzip name="${filename}.tgz"
+			Content-Disposition: attachment; filename="${filename}.tgz"
+			Content-Transfer-Encoding: base64
+
+EOF
+		base64 "${tarfile}"
+		# Write MIME section header for html content to come below
+		tee <<- EOF
+			--${boundary}
+			Content-Transfer-Encoding: 8bit
+			Content-Type: text/html; charset="utf-8"
+
+EOF
+    } >> "${logfile}"
+
+}
+
 
 #
 # Main Script Starts Here
 #
 
-while getopts ":c:" OPTION; do
+while getopts ":c:d" OPTION; do
 	case "${OPTION}" in
 		c)
 			configFile="${OPTARG}"
+		;;
+		d)
+			fileDump="1"
 		;;
 		?)
 			# If an unknown flag is used (or -?):
@@ -1733,7 +1793,7 @@ sendmail
 sort
 tee
 )
-if [ "${configBackup}" = "true" ]; then
+if [ "${configBackup}" = "true" ]  || [ "${fileDump}" = "1" ]; then
 commands+=(
 tar
 sqlite3
@@ -1843,7 +1903,9 @@ EOF
 
 
 ###### Config backup (if enabled)
-if [ "${configBackup}" = "true" ]; then
+if [ "${fileDump}" = "1" ]; then
+	DumpFiles
+elif [ "${configBackup}" = "true" ]; then
 	ConfigBackup
 else
     # Config backup disabled; set up for html-type content
