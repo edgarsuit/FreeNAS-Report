@@ -480,7 +480,7 @@ EOF
 			scrubErrorsColor="${bgColor}"
 		fi
 
-		if [ "$(bc <<< "scale=0;(${scrubAge//%//}+0)/1")" -gt "${scrubAgeWarn}" ]; then
+		if [ "$(bc <<< "scale=0;($(echo "${scrubAge}" | sed -e 's:% done$::')+0)/1")" -gt "${scrubAgeWarn}" ]; then
 			scrubAgeColor="${warnColor}"
 		else
 			scrubAgeColor="${bgColor}"
