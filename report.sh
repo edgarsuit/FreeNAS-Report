@@ -97,6 +97,7 @@ scrubAgeWarn="30"         # Maximum age (in days) of last pool scrub before CRIT
 
 ### SMART status summary table settings
 includeSSD="true"       # Change to "true" to include SSDs in SMART status summary table; "false" to disable
+includeSAS="false"       # Change to "true" to include SAS drives in SMART status summary table; "false" to disable
 lifeRemainWarn="75"       # Life remaining in the SSD at which WARNING color will be used
 lifeRemainCrit="50"       # Life remaining in the SSD at which CRITICAL color will be used
 totalBWWarn="100"         # Total bytes written (in TB) to the SSD at which WARNING color will be used
@@ -588,7 +589,24 @@ EOF
 			local wearLeveling="$(echo "${nvmeSmarOut}" | jq -Mre '.nvme_smart_health_information_log.available_spare | values')"
 			local totalLBA="$(echo "${nvmeSmarOut}" | jq -Mre '.nvme_smart_health_information_log.data_units_written | values')"
 
-			local capacity="$(smartctl -i "/dev/${drive}" | grep '^Namespace 1 Size' | tr -s ' ' | cut -d ' ' -sf '5,6')" # FixMe: have not yet figured out how to best calculate this from json values
+
+			local capacityByte="$(echo "${nvmeSmarOut}" | jq -Mre '.user_capacity.bytes | values')"
+			: "${capacityByte:="0"}"
+
+			if [ "${#capacityByte}" -gt "12" ]; then
+				local capacitySufx=" TB"
+				local capacityExp="12"
+			elif [ "${#capacityByte}" -gt "9" ]; then
+				local capacitySufx=" GB"
+				local capacityExp="9"
+			else
+				local capacitySufx=""
+				local capacityExp="1"
+			fi
+
+			local capacityPre="$(bc <<< "scale=2; ${capacityByte} / (1e${capacityExp})" | head -c 4 | sed -e 's:\.$::')"
+			local capacity="[${capacityPre}${capacitySufx}]"
+
 
 			if [ "$(echo "${nvmeSmarOut}" | jq -Mre '.smart_status.passed | values')" = "true" ]; then
 				local smartStatus="PASSED"
@@ -813,7 +831,24 @@ EOF
 			local model="$(echo "${ssdInfoSmrt}" | jq -Mre '.model_name | values')"
 			local serial="$(echo "${ssdInfoSmrt}" | jq -Mre '.serial_number | values')"
 
-			local capacity="$(smartctl -i "/dev/${drive}" | grep '^User Capacity:' | tr -s ' ' | cut -d ' ' -sf '5,6')" # FixMe: have not yet figured out how to best calculate this from json values
+
+			local capacityByte="$(echo "${ssdInfoSmrt}" | jq -Mre '.user_capacity.bytes | values')"
+			: "${capacityByte:="0"}"
+
+			if [ "${#capacityByte}" -gt "12" ]; then
+				local capacitySufx=" TB"
+				local capacityExp="12"
+			elif [ "${#capacityByte}" -gt "9" ]; then
+				local capacitySufx=" GB"
+				local capacityExp="9"
+			else
+				local capacitySufx=""
+				local capacityExp="1"
+			fi
+
+			local capacityPre="$(bc <<< "scale=2; ${capacityByte} / (1e${capacityExp})" | head -c 4 | sed -e 's:\.$::')"
+			local capacity="[${capacityPre}${capacitySufx}]"
+
 
 			local temp="$(echo "${ssdInfoSmrt}" | jq -Mre '.temperature.current | values')"
 			local onHours="$(echo "${ssdInfoSmrt}" | jq -Mre '.power_on_time.hours | values')"
@@ -1107,7 +1142,24 @@ EOF
 			local serial="$(echo "${hddInfoSmrt}" | jq -Mre '.serial_number | values')"
 			local rpm="$(echo "${hddInfoSmrt}" | jq -Mre '.rotation_rate | values')"
 
-			local capacity="$(smartctl -i "/dev/${drive}" | grep '^User Capacity:' | tr -s ' ' | cut -d ' ' -sf '5,6')" # FixMe: have not yet figured out how to best calculate this from json values
+
+			local capacityByte="$(echo "${hddInfoSmrt}" | jq -Mre '.user_capacity.bytes | values')"
+			: "${capacityByte:="0"}"
+
+			if [ "${#capacityByte}" -gt "12" ]; then
+				local capacitySufx=" TB"
+				local capacityExp="12"
+			elif [ "${#capacityByte}" -gt "9" ]; then
+				local capacitySufx=" GB"
+				local capacityExp="9"
+			else
+				local capacitySufx=""
+				local capacityExp="1"
+			fi
+
+			local capacityPre="$(bc <<< "scale=2; ${capacityByte} / (1e${capacityExp})" | head -c 4 | sed -e 's:\.$::')"
+			local capacity="[${capacityPre}${capacitySufx}]"
+
 
 			local temp="$(echo "${hddInfoSmrt}"| jq -Mre '.temperature.current | values')"
 			local onHours="$(echo "${hddInfoSmrt}" | jq -Mre '.power_on_time.hours | values')"
@@ -1385,7 +1437,24 @@ EOF
 				rpm="SSD"
 			fi
 
-			local capacity="$(smartctl -i "/dev/${drive}" | grep '^User Capacity:' | tr -s ' ' | cut -d ' ' -sf '5,6')" # FixMe: have not yet figured out how to best calculate this from json values
+
+			local capacityByte="$(echo "${sasInfoSmrt}" | jq -Mre '.user_capacity.bytes | values')"
+			: "${capacityByte:="0"}"
+
+			if [ "${#capacityByte}" -gt "12" ]; then
+				local capacitySufx=" TB"
+				local capacityExp="12"
+			elif [ "${#capacityByte}" -gt "9" ]; then
+				local capacitySufx=" GB"
+				local capacityExp="9"
+			else
+				local capacitySufx=""
+				local capacityExp="1"
+			fi
+
+			local capacityPre="$(bc <<< "scale=2; ${capacityByte} / (1e${capacityExp})" | head -c 4 | sed -e 's:\.$::')"
+			local capacity="[${capacityPre}${capacitySufx}]"
+
 
 			local temp="$(echo "${sasInfoSmrt}" | jq -Mre '.temperature.current | values')"
 			local onHours="$(echo "${sasInfoSmrt}" | jq -Mre '.power_on_time.hours | values')"
@@ -1713,7 +1782,8 @@ done | tr ' ' '\n' | sort -V | sed '/^nvme/!H;//p;$!d;g;s:\n::')"
 # Toggles the 'ssdExist' flag to true if SSDs are detected in order to add the summary table
 if [ "${includeSSD}" = "true" ]; then
     for drive in "${drives[@]}"; do
-        if [ "$(smartctl -ij "/dev/${drive}" | jq -Mre '.rotation_rate | values')" = "0" ] && [ ! "$(smartctl -ij "/dev/${drive}" | jq -Mre '.device.type | values')" = "scsi" ]; then
+        driveTypeExistSmartOutput="$(smartctl -ij "/dev/${drive}")"
+        if [ "$(echo "${driveTypeExistSmartOutput}" | jq -Mre '.rotation_rate | values')" = "0" ] && [ ! "$(echo "${driveTypeExistSmartOutput}" | jq -Mre '.device.type | values')" = "scsi" ]; then
             ssdExist="true"
             break
         else
@@ -1726,7 +1796,8 @@ if [ "${includeSSD}" = "true" ]; then
 fi
 # Test to see if there are any HDDs
 for drive in "${drives[@]}"; do
-	if [ ! "$(smartctl -ij "/dev/${drive}" | jq -Mre '.rotation_rate | values')" = "0" ] && [ ! "$(smartctl -ij "/dev/${drive}" | jq -Mre '.device.type | values')" = "scsi" ]; then
+	driveTypeExistSmartOutput="$(smartctl -ij "/dev/${drive}")"
+	if [ ! "$(echo "${driveTypeExistSmartOutput}" | jq -Mre '.rotation_rate | values')" = "0" ] && [ ! "$(echo "${driveTypeExistSmartOutput}" | jq -Mre '.device.type | values')" = "scsi" ]; then
 		hddExist="true"
 		break
 	else
@@ -1734,14 +1805,17 @@ for drive in "${drives[@]}"; do
 	fi
 done
 # Test to see if there are any SAS drives
-for drive in "${drives[@]}"; do
-	if [ "$(smartctl -ij "/dev/${drive}" | jq -Mre '.device.type | values')" = "scsi" ]; then
-		sasExist="true"
-		break
-	else
-		sasExist="false"
-	fi
-done
+if [ "${includeSAS}" = "true" ]; then
+	for drive in "${drives[@]}"; do
+		driveTypeExistSmartOutput="$(smartctl -ij "/dev/${drive}")"
+		if [ "$(echo "${driveTypeExistSmartOutput}" | jq -Mre '.device.type | values')" = "scsi" ]; then
+			sasExist="true"
+			break
+		else
+			sasExist="false"
+		fi
+	done
+fi
 
 # Get a list of pools
 readarray -t "pools" <<< "$(zpool list -H -o name)"
