@@ -11,10 +11,16 @@
 ### At a minimum, enter email address and set defaultFile to 0 in the config file.
 ### Feel free to edit other user parameters as needed.
 
-### Current Version: v1.7.5
+### Current Version: v1.8
 ### https://github.com/dak180/FreeNAS-Report
 
 ### Changelog:
+# v1.8
+#   - Accommodate both SSD and HDD temp settings
+#   - Keep SAS drives in their own section
+#   - Improved support for SAS and NVMe
+#   - Remove all awk
+#   - Add support for per drive overrides
 # v1.7.5
 #   - Add initial support for SAS drives
 # v1.7

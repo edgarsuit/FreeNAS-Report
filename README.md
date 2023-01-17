@@ -42,6 +42,13 @@ Once you have updated the config file, click `Run Now` again to generate your fi
 
 **Changelog**
 
+*v1.8*  (dak180)
+  - Accommodate both SSD and HDD temp settings
+  - Keep SAS drives in their own section
+  - Improved support for SAS and NVMe
+  - Remove all awk
+  - Add support for per drive overrides
+
 *v1.7.5* (dak180)
  - Add initial support for SAS drives
 
