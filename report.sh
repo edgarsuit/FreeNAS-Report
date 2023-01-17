@@ -1888,7 +1888,7 @@ function ReportUPS () {
 
 function DumpFiles () {
 	local filename="dumpfiles"
-    local dumpPath="/tmp/${filename}/"
+	local dumpPath="/tmp/${filename}/"
 	local tarfile="/tmp/${filename}.tgz"
 	local zfsVersion
 	local drive
@@ -1909,8 +1909,8 @@ function DumpFiles () {
 	# Dump drive data
 	{
 		for drive in "${drives[@]}"; do
-			infoSmrtJson="$(smartctl -AHijl xselftest,selftest --quietmode=noserial "/dev/${drive}")"
-			infoSmrt="$(smartctl -AHil error -l xselftest,selftest --quietmode=noserial "/dev/${drive}")"
+			infoSmrtJson="$(smartctl -AHijl xselftest,selftest --log="devstat" --quietmode=noserial "/dev/${drive}")"
+			infoSmrt="$(smartctl -AHil error -l xselftest,selftest --log="devstat" --quietmode=noserial "/dev/${drive}")"
 
 			echo "${infoSmrtJson}" > "${dumpPath}${drive}.json.txt"
 			echo "${infoSmrt}" > "${dumpPath}${drive}.txt"
