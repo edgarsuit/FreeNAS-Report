@@ -124,6 +124,10 @@ logfileLocation="/tmp"      # Directory in which to save TrueNAS log file. Can b
 logfileName="logfilename"                  # Log file name
 saveLogfile="true"                         # Change to "false" to delete the log file after creation
 
+##### Drive Overrides
+# In the form: declare -A _<serial>
+# And then for each override: _<serial>[<value>]="<adjustment>"
+
 
 
 EOF
@@ -598,6 +602,42 @@ EOF
 				local smartStatus="FAILED"
 			fi
 
+
+			## Make override adjustments
+			{
+			local serialMatch
+			# onHours
+			serialMatch="_${serial}[onHours]"
+			if [ ! -z "${!serialMatch}" ]; then
+				onHours="$(bc <<< "${onHours} ${!serialMatch}")"
+			fi
+
+			# mediaErrors
+			serialMatch="_${serial}[mediaErrors]"
+			if [ ! -z "${!serialMatch}" ]; then
+				mediaErrors="$(bc <<< "${mediaErrors} ${!serialMatch}")"
+			fi
+
+			# errorsLogs
+			serialMatch="_${serial}[errorsLogs]"
+			if [ ! -z "${!serialMatch}" ]; then
+				errorsLogs="$(bc <<< "${errorsLogs} ${!serialMatch}")"
+			fi
+
+			# critWarning
+			serialMatch="_${serial}[critWarning]"
+			if [ ! -z "${!serialMatch}" ]; then
+				critWarning="$(bc <<< "${critWarning} ${!serialMatch}")"
+			fi
+
+			# wearLeveling
+			serialMatch="_${serial}[wearLeveling]"
+			if [ ! -z "${!serialMatch}" ]; then
+				wearLeveling="$(bc <<< "${wearLeveling} ${!serialMatch}")"
+			fi
+			}
+
+
 			## Formatting
 			# Calculate capacity for user consumption
 			local capacityByte="$(echo "${nvmeSmarOut}" | jq -Mre '.user_capacity.bytes | values')"
@@ -863,6 +903,59 @@ EOF
 			else
 				local totalLBA="0"
 			fi
+
+
+			## Make override adjustments
+			{
+			local serialMatch
+			# lastTestHours
+			serialMatch="_${serial}[lastTestHours]"
+			if [ ! -z "${!serialMatch}" ]; then
+				lastTestHours="$(bc <<< "${lastTestHours} ${!serialMatch}")"
+			fi
+
+			# onHours
+			serialMatch="_${serial}[onHours]"
+			if [ ! -z "${!serialMatch}" ]; then
+				onHours="$(bc <<< "${onHours} ${!serialMatch}")"
+			fi
+
+			# reAlloc
+			serialMatch="_${serial}[reAlloc]"
+			if [ ! -z "${!serialMatch}" ]; then
+				reAlloc="$(bc <<< "${reAlloc} ${!serialMatch}")"
+			fi
+
+			# progFail
+			serialMatch="_${serial}[progFail]"
+			if [ ! -z "${!serialMatch}" ]; then
+				progFail="$(bc <<< "${progFail} ${!serialMatch}")"
+			fi
+
+			# eraseFail
+			serialMatch="_${serial}[eraseFail]"
+			if [ ! -z "${!serialMatch}" ]; then
+				eraseFail="$(bc <<< "${eraseFail} ${!serialMatch}")"
+			fi
+
+			# offlineUnc
+			serialMatch="_${serial}[offlineUnc]"
+			if [ ! -z "${!serialMatch}" ]; then
+				offlineUnc="$(bc <<< "${offlineUnc} ${!serialMatch}")"
+			fi
+
+			# crcErrors
+			serialMatch="_${serial}[crcErrors]"
+			if [ ! -z "${!serialMatch}" ]; then
+				crcErrors="$(bc <<< "${crcErrors} ${!serialMatch}")"
+			fi
+
+			# wearLeveling
+			serialMatch="_${serial}[wearLeveling]"
+			if [ ! -z "${!serialMatch}" ]; then
+				wearLeveling="$(bc <<< "${wearLeveling} ${!serialMatch}")"
+			fi
+			}
 
 
 			## Formatting
@@ -1155,6 +1248,65 @@ EOF
 			local offlineUnc="$(echo "${hddInfoSmrt}" | jq -Mre '.ata_smart_attributes.table[] | select(.id == 198) | .raw.value | values')"
 			local crcErrors="$(echo "${hddInfoSmrt}" | jq -Mre '.ata_smart_attributes.table[] | select(.id == 199) | .raw.value | values')"
 			local seekErrorHealth="$(echo "${hddInfoSmrt}" | jq -Mre '.ata_smart_attributes.table[] | select(.id == 7) | .value | values')"
+
+
+			## Make override adjustments
+			{
+			local serialMatch
+			# lastTestHours
+			serialMatch="_${serial}[lastTestHours]"
+			if [ ! -z "${!serialMatch}" ]; then
+				lastTestHours="$(bc <<< "${lastTestHours} ${!serialMatch}")"
+			fi
+
+			# onHours
+			serialMatch="_${serial}[onHours]"
+			if [ ! -z "${!serialMatch}" ]; then
+				onHours="$(bc <<< "${onHours} ${!serialMatch}")"
+			fi
+
+			# reAlloc
+			serialMatch="_${serial}[reAlloc]"
+			if [ ! -z "${!serialMatch}" ]; then
+				reAlloc="$(bc <<< "${reAlloc} ${!serialMatch}")"
+			fi
+
+			# spinRetry
+			serialMatch="_${serial}[spinRetry]"
+			if [ ! -z "${!serialMatch}" ]; then
+				spinRetry="$(bc <<< "${spinRetry} ${!serialMatch}")"
+			fi
+
+			# reAllocEvent
+			serialMatch="_${serial}[reAllocEvent]"
+			if [ ! -z "${!serialMatch}" ]; then
+				reAllocEvent="$(bc <<< "${reAllocEvent} ${!serialMatch}")"
+			fi
+
+			# pending
+			serialMatch="_${serial}[pending]"
+			if [ ! -z "${!serialMatch}" ]; then
+				pending="$(bc <<< "${pending} ${!serialMatch}")"
+			fi
+
+			# offlineUnc
+			serialMatch="_${serial}[offlineUnc]"
+			if [ ! -z "${!serialMatch}" ]; then
+				offlineUnc="$(bc <<< "${offlineUnc} ${!serialMatch}")"
+			fi
+
+			# crcErrors
+			serialMatch="_${serial}[crcErrors]"
+			if [ ! -z "${!serialMatch}" ]; then
+				crcErrors="$(bc <<< "${crcErrors} ${!serialMatch}")"
+			fi
+
+			# seekErrorHealth
+			serialMatch="_${serial}[seekErrorHealth]"
+			if [ ! -z "${!serialMatch}" ]; then
+				seekErrorHealth="$(bc <<< "${seekErrorHealth} ${!serialMatch}")"
+			fi
+			}
 
 
 			## Formatting
@@ -1450,6 +1602,53 @@ EOF
 			local nonMediumErrors="$(echo "${nonJsonSasInfoSmrt}" | grep "Non-medium" | tr -s " " | cut -d ' ' -sf '4')"
 			local accumStartStopCycles="$(echo "${nonJsonSasInfoSmrt}" | grep "Accumulated start-stop" | tr -s " " | cut -d ' ' -sf '4')"
 			local accumLoadUnloadCycles="$(echo "${nonJsonSasInfoSmrt}" | grep "Accumulated load-unload" | tr -s " " | cut -d ' ' -sf '4')"
+
+
+			## Make override adjustments
+			{
+			local serialMatch
+			# lastTestHours
+			serialMatch="_${serial}[lastTestHours]"
+			if [ ! -z "${!serialMatch}" ]; then
+				lastTestHours="$(bc <<< "${lastTestHours} ${!serialMatch}")"
+			fi
+
+			# onHours
+			serialMatch="_${serial}[onHours]"
+			if [ ! -z "${!serialMatch}" ]; then
+				onHours="$(bc <<< "${onHours} ${!serialMatch}")"
+			fi
+
+			# scsiGrownDefectList
+			serialMatch="_${serial}[scsiGrownDefectList]"
+			if [ ! -z "${!serialMatch}" ]; then
+				scsiGrownDefectList="$(bc <<< "${scsiGrownDefectList} ${!serialMatch}")"
+			fi
+
+			# uncorrectedReadErrors
+			serialMatch="_${serial}[uncorrectedReadErrors]"
+			if [ ! -z "${!serialMatch}" ]; then
+				uncorrectedReadErrors="$(bc <<< "${uncorrectedReadErrors} ${!serialMatch}")"
+			fi
+
+			# uncorrectedWriteErrors
+			serialMatch="_${serial}[uncorrectedWriteErrors]"
+			if [ ! -z "${!serialMatch}" ]; then
+				uncorrectedWriteErrors="$(bc <<< "${uncorrectedWriteErrors} ${!serialMatch}")"
+			fi
+
+			# uncorrectedVerifyErrors
+			serialMatch="_${serial}[uncorrectedVerifyErrors]"
+			if [ ! -z "${!serialMatch}" ]; then
+				uncorrectedVerifyErrors="$(bc <<< "${uncorrectedVerifyErrors} ${!serialMatch}")"
+			fi
+
+			# nonMediumErrors
+			serialMatch="_${serial}[nonMediumErrors]"
+			if [ ! -z "${!serialMatch}" ]; then
+				nonMediumErrors="$(bc <<< "${nonMediumErrors} ${!serialMatch}")"
+			fi
+			}
 
 
 			## Formatting
