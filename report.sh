@@ -592,7 +592,14 @@ EOF
 			local wearLeveling="$(echo "${nvmeSmarOut}" | jq -Mre '.nvme_smart_health_information_log.available_spare | values')"
 			local totalLBA="$(echo "${nvmeSmarOut}" | jq -Mre '.nvme_smart_health_information_log.data_units_written | values')"
 
+			if [ "$(echo "${nvmeSmarOut}" | jq -Mre '.smart_status.passed | values')" = "true" ]; then
+				local smartStatus="PASSED"
+			else
+				local smartStatus="FAILED"
+			fi
 
+			## Formatting
+			# Calculate capacity for user consumption
 			local capacityByte="$(echo "${nvmeSmarOut}" | jq -Mre '.user_capacity.bytes | values')"
 			: "${capacityByte:="0"}"
 
@@ -609,13 +616,6 @@ EOF
 
 			local capacityPre="$(bc <<< "scale=2; ${capacityByte} / (1e${capacityExp})" | head -c 4 | sed -e 's:\.$::')"
 			local capacity="[${capacityPre}${capacitySufx}]"
-
-
-			if [ "$(echo "${nvmeSmarOut}" | jq -Mre '.smart_status.passed | values')" = "true" ]; then
-				local smartStatus="PASSED"
-			else
-				local smartStatus="FAILED"
-			fi
 
 			# Get more useful times from hours
 			local testAge="$(bc <<< "(${onHours} - (${onHours} - 2) ) / 24")" # ${lastTestHours}
@@ -833,26 +833,6 @@ EOF
 
 			local model="$(echo "${ssdInfoSmrt}" | jq -Mre '.model_name | values')"
 			local serial="$(echo "${ssdInfoSmrt}" | jq -Mre '.serial_number | values')"
-
-
-			local capacityByte="$(echo "${ssdInfoSmrt}" | jq -Mre '.user_capacity.bytes | values')"
-			: "${capacityByte:="0"}"
-
-			if [ "${#capacityByte}" -gt "12" ]; then
-				local capacitySufx=" TB"
-				local capacityExp="12"
-			elif [ "${#capacityByte}" -gt "9" ]; then
-				local capacitySufx=" GB"
-				local capacityExp="9"
-			else
-				local capacitySufx=""
-				local capacityExp="1"
-			fi
-
-			local capacityPre="$(bc <<< "scale=2; ${capacityByte} / (1e${capacityExp})" | head -c 4 | sed -e 's:\.$::')"
-			local capacity="[${capacityPre}${capacitySufx}]"
-
-
 			local temp="$(echo "${ssdInfoSmrt}" | jq -Mre '.temperature.current | values')"
 			local onHours="$(echo "${ssdInfoSmrt}" | jq -Mre '.power_on_time.hours | values')"
 			local startStop="$(echo "${ssdInfoSmrt}" | jq -Mre '.power_cycle_count | values')"
@@ -884,6 +864,25 @@ EOF
 				local totalLBA="0"
 			fi
 
+
+			## Formatting
+			# Calculate capacity for user consumption
+			local capacityByte="$(echo "${ssdInfoSmrt}" | jq -Mre '.user_capacity.bytes | values')"
+			: "${capacityByte:="0"}"
+
+			if [ "${#capacityByte}" -gt "12" ]; then
+				local capacitySufx=" TB"
+				local capacityExp="12"
+			elif [ "${#capacityByte}" -gt "9" ]; then
+				local capacitySufx=" GB"
+				local capacityExp="9"
+			else
+				local capacitySufx=""
+				local capacityExp="1"
+			fi
+
+			local capacityPre="$(bc <<< "scale=2; ${capacityByte} / (1e${capacityExp})" | head -c 4 | sed -e 's:\.$::')"
+			local capacity="[${capacityPre}${capacitySufx}]"
 
 			# Get more useful times from hours
 			local testAge=""
@@ -1144,8 +1143,22 @@ EOF
 			local model="$(echo "${hddInfoSmrt}" | jq -Mre '.model_name | values')"
 			local serial="$(echo "${hddInfoSmrt}" | jq -Mre '.serial_number | values')"
 			local rpm="$(echo "${hddInfoSmrt}" | jq -Mre '.rotation_rate | values')"
+			local temp="$(echo "${hddInfoSmrt}"| jq -Mre '.temperature.current | values')"
+			local onHours="$(echo "${hddInfoSmrt}" | jq -Mre '.power_on_time.hours | values')"
+			local startStop="$(echo "${hddInfoSmrt}" | jq -Mre '.power_cycle_count | values')"
+
+			# Available for most common drives
+			local reAlloc="$(echo "${hddInfoSmrt}" | jq -Mre '.ata_smart_attributes.table[] | select(.id == 5) | .raw.value | values')"
+			local spinRetry="$(echo "${hddInfoSmrt}" | jq -Mre '.ata_smart_attributes.table[] | select(.id == 10) | .raw.value | values')"
+			local reAllocEvent="$(echo "${hddInfoSmrt}" | jq -Mre '.ata_smart_attributes.table[] | select(.id == 196) | .raw.value | values')"
+			local pending="$(echo "${hddInfoSmrt}" | jq -Mre '.ata_smart_attributes.table[] | select(.id == 197) | .raw.value | values')"
+			local offlineUnc="$(echo "${hddInfoSmrt}" | jq -Mre '.ata_smart_attributes.table[] | select(.id == 198) | .raw.value | values')"
+			local crcErrors="$(echo "${hddInfoSmrt}" | jq -Mre '.ata_smart_attributes.table[] | select(.id == 199) | .raw.value | values')"
+			local seekErrorHealth="$(echo "${hddInfoSmrt}" | jq -Mre '.ata_smart_attributes.table[] | select(.id == 7) | .value | values')"
 
 
+			## Formatting
+			# Calculate capacity for user consumption
 			local capacityByte="$(echo "${hddInfoSmrt}" | jq -Mre '.user_capacity.bytes | values')"
 			: "${capacityByte:="0"}"
 
@@ -1162,21 +1175,6 @@ EOF
 
 			local capacityPre="$(bc <<< "scale=2; ${capacityByte} / (1e${capacityExp})" | head -c 4 | sed -e 's:\.$::')"
 			local capacity="[${capacityPre}${capacitySufx}]"
-
-
-			local temp="$(echo "${hddInfoSmrt}"| jq -Mre '.temperature.current | values')"
-			local onHours="$(echo "${hddInfoSmrt}" | jq -Mre '.power_on_time.hours | values')"
-			local startStop="$(echo "${hddInfoSmrt}" | jq -Mre '.power_cycle_count | values')"
-
-			# Available for most common drives
-			local reAlloc="$(echo "${hddInfoSmrt}" | jq -Mre '.ata_smart_attributes.table[] | select(.id == 5) | .raw.value | values')"
-			local spinRetry="$(echo "${hddInfoSmrt}" | jq -Mre '.ata_smart_attributes.table[] | select(.id == 10) | .raw.value | values')"
-			local reAllocEvent="$(echo "${hddInfoSmrt}" | jq -Mre '.ata_smart_attributes.table[] | select(.id == 196) | .raw.value | values')"
-			local pending="$(echo "${hddInfoSmrt}" | jq -Mre '.ata_smart_attributes.table[] | select(.id == 197) | .raw.value | values')"
-			local offlineUnc="$(echo "${hddInfoSmrt}" | jq -Mre '.ata_smart_attributes.table[] | select(.id == 198) | .raw.value | values')"
-			local crcErrors="$(echo "${hddInfoSmrt}" | jq -Mre '.ata_smart_attributes.table[] | select(.id == 199) | .raw.value | values')"
-			local seekErrorHealth="$(echo "${hddInfoSmrt}" | jq -Mre '.ata_smart_attributes.table[] | select(.id == 7) | .value | values')"
-
 
 			# Get more useful times from hours
 			local testAge=""
@@ -1404,10 +1402,10 @@ EOF
 			local runningNowTest="$(echo "${nonJsonSasInfoSmrt}" | grep '# 1' | tr -s " " | cut -d ' ' -sf '5,6,7,8,9')"
 			if [ "${runningNowTest}" = "Self test in progress ..." ]; then
 				lastTestHours="$(echo "${sasInfoSmrt}" | jq -Mre '.power_on_time.hours | values')"
-				lastTestStatus="$(echo "${nonJsonSasInfoSmrt}" | grep '# 1' | tr -s " " | cut -d ' ' -sf '12,13,14,15')"
+				lastTestStatus="$(echo "${nonJsonSasInfoSmrt}" | grep '# 1' | tr -s " " | cut -d ' ' -sf '12-15')"
 			else
 				lastTestHours="$(echo "${nonJsonSasInfoSmrt}" | grep '# 1' | tr -s " " | cut -d ' ' -sf '7')"
-				lastTestStatus="$(echo "${nonJsonSasInfoSmrt}" | grep '# 1' | tr -s " " | cut -d ' ' -sf '8,9,10,11')"
+				lastTestStatus="$(echo "${nonJsonSasInfoSmrt}" | grep '# 1' | tr -s " " | cut -d ' ' -sf '8-11')"
 			fi
 
 			# Mimic the true/false response expected from json in the future
@@ -1439,8 +1437,23 @@ EOF
 			if [ "${rpm:-0}" = "0" ]; then
 				rpm="SSD"
 			fi
+			local temp="$(echo "${sasInfoSmrt}" | jq -Mre '.temperature.current | values')"
+			local onHours="$(echo "${sasInfoSmrt}" | jq -Mre '.power_on_time.hours | values')"
+
+			# Available for most common drives
+			local scsiGrownDefectList="$(echo "${sasInfoSmrt}" | jq -Mre '.scsi_grown_defect_list | values')"
+			local uncorrectedReadErrors="$(echo "${sasInfoSmrt}" | jq -Mre '.read.total_uncorrected_errors | values')"
+			local uncorrectedWriteErrors="$(echo "${sasInfoSmrt}" | jq -Mre '.write.total_uncorrected_errors | values')"
+			local uncorrectedVerifyErrors="$(echo "${sasInfoSmrt}" | jq -Mre '.verify.total_uncorrected_errors | values')"
+
+			#FixMe: relies on non-json output
+			local nonMediumErrors="$(echo "${nonJsonSasInfoSmrt}" | grep "Non-medium" | tr -s " " | cut -d ' ' -sf '4')"
+			local accumStartStopCycles="$(echo "${nonJsonSasInfoSmrt}" | grep "Accumulated start-stop" | tr -s " " | cut -d ' ' -sf '4')"
+			local accumLoadUnloadCycles="$(echo "${nonJsonSasInfoSmrt}" | grep "Accumulated load-unload" | tr -s " " | cut -d ' ' -sf '4')"
 
 
+			## Formatting
+			# Calculate capacity for user consumption
 			local capacityByte="$(echo "${sasInfoSmrt}" | jq -Mre '.user_capacity.bytes | values')"
 			: "${capacityByte:="0"}"
 
@@ -1457,21 +1470,6 @@ EOF
 
 			local capacityPre="$(bc <<< "scale=2; ${capacityByte} / (1e${capacityExp})" | head -c 4 | sed -e 's:\.$::')"
 			local capacity="[${capacityPre}${capacitySufx}]"
-
-
-			local temp="$(echo "${sasInfoSmrt}" | jq -Mre '.temperature.current | values')"
-			local onHours="$(echo "${sasInfoSmrt}" | jq -Mre '.power_on_time.hours | values')"
-
-			# Available for most common drives
-			local scsiGrownDefectList="$(echo "${sasInfoSmrt}" | jq -Mre '.scsi_grown_defect_list | values')"
-			local uncorrectedReadErrors="$(echo "${sasInfoSmrt}" | jq -Mre '.read.total_uncorrected_errors | values')"
-			local uncorrectedWriteErrors="$(echo "${sasInfoSmrt}" | jq -Mre '.write.total_uncorrected_errors | values')"
-			local uncorrectedVerifyErrors="$(echo "${sasInfoSmrt}" | jq -Mre '.verify.total_uncorrected_errors | values')"
-
-			#FixMe: relies on non-json output
-			local nonMediumErrors="$(echo "${nonJsonSasInfoSmrt}" | grep "Non-medium" | tr -s " " | cut -d ' ' -sf '4')"
-			local accumStartStopCycles="$(echo "${nonJsonSasInfoSmrt}" | grep "Accumulated start-stop" | tr -s " " | cut -d ' ' -sf '4')"
-			local accumLoadUnloadCycles="$(echo "${nonJsonSasInfoSmrt}" | grep "Accumulated load-unload" | tr -s " " | cut -d ' ' -sf '4')"
 
 			# Get more useful times from hours
 			local testAge=""
