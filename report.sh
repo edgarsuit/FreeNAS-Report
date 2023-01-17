@@ -1320,6 +1320,7 @@ if [ "${systemType}" = "BSD" ]; then
 	localDriveList="$(sysctl -n kern.disks | sed -e 's:nvd:nvme:g')"
 else
 	localDriveList="$(ls -l "/sys/block" | grep -v 'devices/virtual' | cut -d ' ' -f "9")"
+	# lsblk -n -l -o NAME -E PKNAME | tr '\n' ' '
 fi
 
 readarray -t "drives" <<< "$(for drive in ${localDriveList}; do
