@@ -2184,7 +2184,7 @@ done
 ### SMART status for each drive
 for drive in "${drives[@]}"; do
     smartOut="$(smartctl --json=u -i "/dev/${drive}")" # FixMe: smart support flag is not yet implemented in smartctl json output.
-    smartTestOut="$(smartctl -l xselftest,selftest "/dev/${drive}")"
+    smartTestOut="$(smartctl -l xselftest,selftest "/dev/${drive}" | grep -v 'SMART Extended Self-test')"
 
     if echo "${smartOut}" | grep "SMART support is:" | grep -q "Enabled"; then # FixMe: smart support flag is not yet implemented in smartctl json output.
         # Gather brand and serial number of each drive
