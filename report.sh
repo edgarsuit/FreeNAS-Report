@@ -2216,6 +2216,7 @@ for drive in "${drives[@]}"; do
 			# Create a simple header and drop the output of some basic smartctl commands
             echo '<b>########## SMART status report for '"${drive}"' drive ('"${brand}: ${serial}"') ##########</b>'
             smartctl -H -A -l error "/dev/${drive}"
+            nvmecontrol logpage -p 0x06 ${drive} | grep '\['
             echo '<br><br>'
 		} >> "${logfile}"
     fi
