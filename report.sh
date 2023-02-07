@@ -136,7 +136,11 @@ function ConfigBackup () {
     # Set up file names, etc for later
     tarfile="/tmp/config_backup.tar.gz"
     fnconfigdest_version="$(< /etc/version sed -e 's:)::' -e 's:(::' -e 's: :-:' | tr -d '\n')"
-    fnconfigdest_date="$(date -r "${runDate}" '+%Y%m%d%H%M%S')"
+	if [ "${systemType}" = "BSD" ]; then
+		fnconfigdest_date="$(date -r "${runDate}" '+%Y%m%d%H%M%S')"
+	else
+		fnconfigdest_date="$(date -d "@${runDate}" '+%Y%m%d%H%M%S')"
+    fi
     filename="${fnconfigdest_date}_${fnconfigdest_version}"
 
     ### Test config integrity
@@ -315,7 +319,11 @@ function ZpoolSummary () {
 			else
 				scrubDate="$(echo "${statusOutput}" | grep "scan:" | awk '{print $15"-"$12"-"$13"_"$14}')"
 			fi
-			scrubTS="$(date -j -f '%Y-%b-%e_%H:%M:%S' "${scrubDate}" '+%s')"
+			if [ "${systemType}" = "BSD" ]; then
+				scrubTS="$(date -j -f '%Y-%b-%e_%H:%M:%S' "${scrubDate}" '+%s')"
+			else
+				scrubTS="$(date -d "${scrubDate}" '+%s')"
+			fi
 			currentTS="${runDate}"
 			scrubAge="$((((currentTS - scrubTS) + 43200) / 86400))"
 			if [ "${multiDay}" -ge 1 ] ; then
@@ -332,7 +340,11 @@ function ZpoolSummary () {
 
 			# Convert time/datestamp format presented by zpool status, compare to current date, calculate scrub age
 			scrubDate="$(echo "${statusOutput}" | grep "scan:" | awk '{print $14"-"$11"-"$12"_"$13}')"
-			scrubTS="$(date -j -f '%Y-%b-%e_%H:%M:%S' "${scrubDate}" '+%s')"
+			if [ "${systemType}" = "BSD" ]; then
+				scrubTS="$(date -j -f '%Y-%b-%e_%H:%M:%S' "${scrubDate}" '+%s')"
+			else
+				scrubTS="$(date -d "${scrubDate}" '+%s')"
+			fi
 			currentTS="${runDate}"
 			scrubAge="$((((currentTS - scrubTS) + 43200) / 86400))"
 			scrubTime="$(echo "${statusOutput}" | grep "scan:" | awk '{print $5}')"
@@ -1309,8 +1321,16 @@ host="$(hostname -s)"
 fromEmail="$(sqlite3 /data/freenas-v1.db "select em_fromemail from system_email;")"
 fromName="$(sqlite3 /data/freenas-v1.db "select em_fromname from system_email;")"
 runDate="$(date '+%s')"
-logfile="${logfileLocation}/$(date -r "${runDate}" '+%Y%m%d%H%M%S')_${logfileName}.tmp"
-subject="Status Report and Configuration Backup for ${host} - $(date -r "${runDate}" '+%Y-%m-%d %H:%M')"
+if [ "${systemType}" = "BSD" ]; then
+	logfile="${logfileLocation}/$(date -r "${runDate}" '+%Y%m%d%H%M%S')_${logfileName}.tmp"
+else
+	logfile="${logfileLocation}/$(date -d "@${runDate}" '+%Y%m%d%H%M%S')_${logfileName}.tmp"
+fi
+if [ "${systemType}" = "BSD" ]; then
+	subject="Status Report and Configuration Backup for ${host} - $(date -r "${runDate}" '+%Y-%m-%d %H:%M')"
+else
+	subject="Status Report and Configuration Backup for ${host} - $(date -d "@${runDate}" '+%Y-%m-%d %H:%M')"
+fi
 boundary="$(dbus-uuidgen)"
 messageid="$(dbus-uuidgen)"
 
@@ -1368,7 +1388,11 @@ readarray -t "pools" <<< "$(zpool list -H -o name)"
     echo "Subject: ${subject}"
     echo "MIME-Version: 1.0"
     echo 'Content-Type: multipart/mixed; boundary="'"${boundary}"'"'
-    echo "Date: $(date -Rr "${runDate}")"
+    if [ "${systemType}" = "BSD" ]; then
+		echo "Date: $(date -Rr "${runDate}")"
+    else
+    	echo "Date: $(date -d "@${runDate}" '+%a, %d %b %Y %T %Z')"
+    fi
     echo "Message-Id: <${messageid}@${host}>"
 } > "${logfile}"
 
