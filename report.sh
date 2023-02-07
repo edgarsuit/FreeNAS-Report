@@ -369,11 +369,11 @@ EOF
 				scrubDuration="$(echo "${statusOutputLine}" | cut -d ' ' -f "6")"
 				scrubErrors="$(echo "${statusOutputLine}" | cut -d ' ' -f "8")"
 			fi
-			scrubDate="${scrubYear}-${scrubMonth}-${scrubDay} ${scrubTime}"
+			scrubDate="${scrubMonth} ${scrubDay} ${scrubYear} ${scrubTime}"
 
 
             if [ "${systemType}" = "BSD" ]; then
-                scrubTS="$(date -j -f '%Y-%b-%e %H:%M:%S' "${scrubDate}" '+%s')"
+                scrubTS="$(date -j -f '%b %e %Y %H:%M:%S' "${scrubDate}" '+%s')"
             else
                 scrubTS="$(date -d "${scrubDate}" '+%s')"
             fi
@@ -408,11 +408,11 @@ EOF
 				scrubDuration="$(echo "${statusOutputLine}" | cut -d ' ' -f "5")"
 				scrubErrors="$(echo "${statusOutputLine}" | cut -d ' ' -f "7")"
 			fi
-			scrubDate="${scrubYear}-${scrubMonth}-${scrubDay} ${scrubTime}"
+			scrubDate="${scrubMonth} ${scrubDay} ${scrubYear} ${scrubTime}"
 
 
             if [ "${systemType}" = "BSD" ]; then
-                scrubTS="$(date -j -f '%Y-%b-%e %H:%M:%S' "${scrubDate}" '+%s')"
+                scrubTS="$(date -j -f '%b %e %Y %H:%M:%S' "${scrubDate}" '+%s')"
             else
                 scrubTS="$(date -d "${scrubDate}" '+%s')"
             fi
