@@ -1,0 +1,22 @@
+  pool: jails
+ state: ONLINE
+status: Some supported and requested features are not enabled on the pool.
+	The pool can still be used, but some features are unavailable.
+action: Enable all features using 'zpool upgrade'. Once this is done,
+	the pool may no longer be accessible by software that does not support
+	the features. See zpool-features(7) for details.
+  scan: scrub repaired 0B in 00:37:54 with 0 errors on Thu Dec 15 02:37:58 2022
+config:
+
+	NAME                                            STATE     READ WRITE CKSUM
+	jails                                           ONLINE       0     0     0
+	  mirror-0                                      ONLINE       0     0     0
+	    gptid/5af3b112-ae22-11ec-b1df-d05099c13d03  ONLINE       0     0     0
+	    gptid/eb3d01ce-ad8c-11ec-b1df-d05099c13d03  ONLINE       0     0     0
+	  mirror-1                                      ONLINE       0     0     0
+	    gptid/6f46a30c-0366-11ec-9de4-d05099c13d03  ONLINE       0     0     0
+	    gptid/dda6dac8-0382-11ec-9de4-d05099c13d03  ONLINE       0     0     0
+	cache
+	  gptid/3dce1035-8aea-11ed-b30b-d05099c13d03    ONLINE       0     0     0
+
+errors: No known data errors

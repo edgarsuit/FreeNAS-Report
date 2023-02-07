@@ -1,0 +1,29 @@
+  pool: data
+ state: ONLINE
+status: One or more devices is currently being resilvered.  The pool will
+	continue to function, possibly in a degraded state.
+action: Wait for the resilver to complete.
+  scan: resilver in progress since Sat Dec 31 21:46:04 2022
+	14.9T scanned at 19.3G/s, 14.9T issued at 19.3G/s, 20.5T total
+	0B resilvered, 72.80% done, 00:04:56 to go
+config:
+
+	NAME                                            STATE     READ WRITE CKSUM
+	data                                            ONLINE       0     0     0
+	  raidz3-0                                      ONLINE       0     0     0
+	    gptid/95378d35-7b98-11ed-b486-d05099c13d03  ONLINE       0     0     0
+	    gptid/4b4c3c38-6e06-11ed-a9d5-d05099c13d03  ONLINE       0     0     0
+	    gptid/9b844178-2482-11ec-8714-d05099c13d03  ONLINE       0     0     0
+	    gptid/f0affe10-321b-11ec-ba66-d05099c13d03  ONLINE       0     0     0
+	    gptid/e5f87be0-27e7-11ec-96bc-d05099c13d03  ONLINE       0     0     0
+	    gptid/e9d6ea26-25dc-11ec-8714-d05099c13d03  ONLINE       0     0     0
+	    gptid/a02741cb-2527-11ec-8714-d05099c13d03  ONLINE       0     0     0
+	    gptid/33fe635d-2713-11ec-8714-d05099c13d03  ONLINE       0     0     0
+	logs	
+	  mirror-6                                      ONLINE       0     0     0
+	    gptid/e2c3914f-8596-11ed-bce6-d05099c13d03  ONLINE       0     0     0
+	    gptid/6f5748eb-897e-11ed-aa49-d05099c13d03  ONLINE       0     0     0
+	cache
+	  gptid/b2daa313-80d2-11ed-b9fa-d05099c13d03    ONLINE       0     0     0
+
+errors: No known data errors

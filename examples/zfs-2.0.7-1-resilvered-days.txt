@@ -1,0 +1,29 @@
+  pool: pool1
+ state: ONLINE
+  scan: resilvered 2.31T in 1 days 02:55:32 with 0 errors on Sat Dec 24 02:33:08 2022
+config:
+
+	NAME                                            STATE     READ WRITE CKSUM
+	pool1                                           ONLINE       0     0     0
+	  raidz2-0                                      ONLINE       0     0     0
+	    gptid/ef161b9c-99fb-11eb-8c44-8cdcd4a82a00  ONLINE       0     0     0
+	    gptid/b2fbf31f-775c-11ea-bfca-8cdcd4a82a00  ONLINE       0     0     0
+	    gptid/dabfaddf-a405-11ea-b106-8cdcd4a82a00  ONLINE       0     0     0
+	    gptid/389c44fd-d75d-11eb-8c44-8cdcd4a82a00  ONLINE       0     0     0
+	    gptid/61a310f2-b648-11eb-8c44-8cdcd4a82a00  ONLINE       0     0     0
+	    gptid/9bbeb65a-5a7d-11ea-bfca-8cdcd4a82a00  ONLINE       0     0     0
+	  raidz2-3                                      ONLINE       0     0     0
+	    gptid/ddf50f19-3924-11ed-937c-8cdcd4a82a00  ONLINE       0     0     0
+	    gptid/261a8ad5-5d32-11ed-937c-8cdcd4a82a00  ONLINE       0     0     0
+	    gptid/490f137c-c2f2-11ec-937c-8cdcd4a82a00  ONLINE       0     0     0
+	    gptid/3aee2726-8249-11ed-937c-8cdcd4a82a00  ONLINE       0     0     0
+	    gptid/cbf18155-1cbf-11e5-a52f-74d02b98b14b  ONLINE       0     0     0
+	    gptid/cc577a01-1cbf-11e5-a52f-74d02b98b14b  ONLINE       0     0     0
+	logs	
+	  mirror-1                                      ONLINE       0     0     0
+	    gptid/5425d823-5d1b-11ed-937c-8cdcd4a82a00  ONLINE       0     0     0
+	    gptid/79af7112-758b-11ec-b210-8cdcd4a82a00  ONLINE       0     0     0
+	cache
+	  gptid/6f326eed-6dcd-11e6-92ad-74d02b98b14b    ONLINE       0     0     0
+
+errors: No known data errors

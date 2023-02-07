@@ -1,0 +1,31 @@
+  pool: data
+ state: ONLINE
+status: Some supported and requested features are not enabled on the pool.
+	The pool can still be used, but some features are unavailable.
+action: Enable all features using 'zpool upgrade'. Once this is done,
+	the pool may no longer be accessible by software that does not support
+	the features. See zpool-features(7) for details.
+  scan: scrub in progress since Sun Jan 15 23:29:50 2023
+	12.8T scanned at 45.4G/s, 50.9G issued at 180M/s, 20.7T total
+	0B repaired, 0.24% done, 1 days 09:15:46 to go
+config:
+
+	NAME                                            STATE     READ WRITE CKSUM
+	data                                            ONLINE       0     0     0
+	  raidz3-0                                      ONLINE       0     0     0
+	    gptid/95378d35-7b98-11ed-b486-d05099c13d03  ONLINE       0     0     0
+	    gptid/4b4c3c38-6e06-11ed-a9d5-d05099c13d03  ONLINE       0     0     0
+	    gptid/9b844178-2482-11ec-8714-d05099c13d03  ONLINE       0     0     0
+	    gptid/f0affe10-321b-11ec-ba66-d05099c13d03  ONLINE       0     0     0
+	    gptid/e5f87be0-27e7-11ec-96bc-d05099c13d03  ONLINE       0     0     0
+	    gptid/e9d6ea26-25dc-11ec-8714-d05099c13d03  ONLINE       0     0     0
+	    gptid/a02741cb-2527-11ec-8714-d05099c13d03  ONLINE       0     0     0
+	    gptid/33fe635d-2713-11ec-8714-d05099c13d03  ONLINE       0     0     0
+	logs	
+	  mirror-7                                      ONLINE       0     0     0
+	    gptid/5055ae20-8aed-11ed-9195-d05099c13d03  ONLINE       0     0     0
+	    gptid/50543165-8aed-11ed-9195-d05099c13d03  ONLINE       0     0     0
+	cache
+	  gptid/5052b77e-8aed-11ed-9195-d05099c13d03    ONLINE       0     0     0
+
+errors: No known data errors

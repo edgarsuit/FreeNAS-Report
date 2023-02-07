@@ -11,10 +11,18 @@
 ### At a minimum, enter email address and set defaultFile to 0 in the config file.
 ### Feel free to edit other user parameters as needed.
 
-### Current Version: v1.7
+### Current Version: v1.8
 ### https://github.com/dak180/FreeNAS-Report
 
 ### Changelog:
+# v1.8
+#   - Accommodate both SSD and HDD temp settings
+#   - Keep SAS drives in their own section
+#   - Improved support for SAS and NVMe
+#   - Remove all awk
+#   - Add support for per drive overrides
+# v1.7.5
+#   - Add initial support for SAS drives
 # v1.7
 #   - Refactor to reduce dependence on awk
 #   - Use a separate config file
@@ -68,6 +76,8 @@
 # v1.0
 #   - Initial release
 
+# Defaults
+LANG="en_US.UTF-8" # Ensure date works as expected.
 
 # Functions
 function rpConfig () {
@@ -93,6 +103,7 @@ scrubAgeWarn="30"         # Maximum age (in days) of last pool scrub before CRIT
 
 ### SMART status summary table settings
 includeSSD="true"       # Change to "true" to include SSDs in SMART status summary table; "false" to disable
+includeSAS="false"       # Change to "true" to include SAS drives in SMART status summary table; "false" to disable
 lifeRemainWarn="75"       # Life remaining in the SSD at which WARNING color will be used
 lifeRemainCrit="50"       # Life remaining in the SSD at which CRITICAL color will be used
 totalBWWarn="100"         # Total bytes written (in TB) to the SSD at which WARNING color will be used
@@ -118,6 +129,10 @@ reportUPS="false"        # Change to "false" to skip reporting the status of the
 logfileLocation="/tmp"      # Directory in which to save TrueNAS log file. Can be set to /tmp.
 logfileName="logfilename"                  # Log file name
 saveLogfile="true"                         # Change to "false" to delete the log file after creation
+
+##### Drive Overrides
+# In the form: declare -A _<serial>
+# And then for each override: _<serial>[<value>]="<adjustment>"
 
 
 
@@ -148,12 +163,15 @@ function ConfigBackup () {
 
         # Config integrity check failed, set MIME content type to html and print warning
         {
-            echo "--${boundary}"
-            echo "Content-Transfer-Encoding: 8bit"
-            echo -e "Content-Type: text/html; charset=utf-8\n"
-            echo "<b>Automatic backup of TrueNAS configuration has failed! The configuration file is corrupted!</b>"
-            echo "<b>You should correct this problem as soon as possible!</b>"
-            echo "<br>"
+			tee <<- EOF
+				--${boundary}
+				Content-Transfer-Encoding: 8bit
+				Content-Type: text/html; charset=utf-8
+
+				<b>Automatic backup of TrueNAS configuration has failed! The configuration file is corrupted!</b>
+				<b>You should correct this problem as soon as possible!</b>
+				<br>
+EOF
         } >> "${logfile}"
     else
         # Config integrity check passed; copy config db, generate checksums, make .tar.gz archive
@@ -168,17 +186,23 @@ function ConfigBackup () {
         {
 			if [ "${emailBackup}" = "true" ]; then
 				# Write MIME section header for file attachment (encoded with base64)
-				echo "--${boundary}"
-				echo -e "Content-Type: application/tar+gzip\n"
-				echo "Content-Transfer-Encoding: base64"
-				echo "Content-Disposition: attachment; filename=${filename}.tar.gz"
+				tee <<- EOF
+					--${boundary}
+					Content-Type: application/tar+gzip name="${filename}.tar.gz"
+					Content-Disposition: attachment; filename="${filename}.tar.gz"
+					Content-Transfer-Encoding: base64
+
+EOF
 				base64 "${tarfile}"
 			fi
 
             # Write MIME section header for html content to come below
-            echo "--${boundary}"
-            echo "Content-Transfer-Encoding: 8bit"
-            echo -e "Content-Type: text/html; charset=utf-8\n"
+			tee <<- EOF
+				--${boundary}
+				Content-Transfer-Encoding: 8bit
+				Content-Type: text/html; charset="utf-8"
+
+EOF
         } >> "${logfile}"
 
         # If logfile saving is enabled, copy .tar.gz file to specified location before it (and everything else) is removed below
@@ -193,6 +217,7 @@ function ConfigBackup () {
 }
 
 function ZpoolSummary () {
+	{
 	local pool
 	local status
 	local frag
@@ -208,7 +233,7 @@ function ZpoolSummary () {
 	local scrubRepBytes
 	local scrubErrors
 	local scrubAge
-	local scrubTime
+	local scrubDuration
 	local resilver
 	local statusOutput
 	local bgColor
@@ -222,30 +247,35 @@ function ZpoolSummary () {
 	local scrubAgeColor
 	local multiDay
 	local altRow
+	local zfsVersion
+	}
 
+	zfsVersion="$(zpool version 2> /dev/null | head -n 1 | sed -e 's:zfs-::')"
 
 	### zpool status summary table
 	{
 		# Write HTML table headers to log file; HTML in an email requires 100% in-line styling (no CSS or <style> section), hence the massive tags
-		echo '<br><br>'
-		echo '<table style="border: 1px solid black; border-collapse: collapse;">'
-		echo '<tr><th colspan="14" style="text-align:center; font-size:20px; height:40px; font-family:courier;">ZPool Status Report Summary</th></tr>'
-		echo '<tr>'
-		echo '<th style="text-align:center; width:130px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Pool<br>Name</th>'
-		echo '<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Status</th>'
-		echo '<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Size</th>'
-		echo '<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Allocated</th>'
-		echo '<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Free</th>'
-		echo '<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Frag %</th>'
-		echo '<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Used %</th>'
-		echo '<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Read<br>Errors</th>'
-		echo '<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Write<br>Errors</th>'
-		echo '<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Cksum<br>Errors</th>'
-		echo '<th style="text-align:center; width:100px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Scrub<br>Repaired<br>Bytes</th>'
-		echo '<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Scrub<br>Errors</th>'
-		echo '<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Last<br>Scrub<br>Age (days)</th>'
-		echo '<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Last<br>Scrub<br>Duration</th>'
-		echo '</tr>'
+		tee <<- EOF
+			<br><br>
+			<table style="border: 1px solid black; border-collapse: collapse;">
+			<tr><th colspan="14" style="text-align:center; font-size:20px; height:40px; font-family:courier;">ZPool Status Report Summary</th></tr>
+			<tr>
+			<th style="text-align:center; width:130px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Pool<br>Name</th>
+			<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Status</th>
+			<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Size</th>
+			<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Allocated</th>
+			<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Free</th>
+			<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Frag %</th>
+			<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Used %</th>
+			<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Read<br>Errors</th>
+			<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Write<br>Errors</th>
+			<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Cksum<br>Errors</th>
+			<th style="text-align:center; width:100px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Scrub<br>Repaired<br>Bytes</th>
+			<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Scrub<br>Errors</th>
+			<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Last<br>Scrub<br>Age (days)</th>
+			<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Last<br>Scrub<br>Duration</th>
+			</tr> <!-- ${zfsVersion} -->
+EOF
 	} >> "${logfile}"
 
 
@@ -256,32 +286,35 @@ function ZpoolSummary () {
 		status="$(zpool list -H -o health "${pool}")"
 
 		# zpool fragment summary
-		frag="$(zpool list -H -p -o frag "${pool}" | tr -d %% | awk '{print $0 + 0}')"
+		frag="$(zpool list -H -p -o frag "${pool}")"
 		size="$(zpool list -H -o size "${pool}")"
 		allocated="$(zpool list -H -o allocated "${pool}")"
 		free="$(zpool list -H -o free "${pool}")"
 
 		# Total all read, write, and checksum errors per pool
-		errors="$(zpool status "${pool}" | grep -E "(ONLINE|DEGRADED|FAULTED|UNAVAIL|REMOVED)[ \\t]+[0-9]+")"
+		errors="$(zpool status "${pool}" | grep -E "(ONLINE|DEGRADED|FAULTED|UNAVAIL|REMOVED)[ \\t]+[0-9]+" | tr -s '[:blank:]' ' ')"
 		readErrors="0"
-		for err in $(echo "${errors}" | awk '{print $3}'); do
+		for err in $(echo "${errors}" | cut -d ' ' -f "4"); do
 			if echo "${err}" | grep -E -q "[^0-9]+"; then
+				# Assume a non number value is > 1000
 				readErrors="1000"
 				break
 			fi
 			readErrors="$((readErrors + err))"
 		done
 		writeErrors="0"
-		for err in $(echo "${err}ors" | awk '{print $4}'); do
+		for err in $(echo "${errors}" | cut -d ' ' -f "5"); do
 			if echo "${err}" | grep -E -q "[^0-9]+"; then
+				# Assume a non number value is > 1000
 				writeErrors="1000"
 				break
 			fi
 			writeErrors="$((writeErrors + err))"
 		done
 		cksumErrors="0"
-		for err in $(echo "${err}ors" | awk '{print $5}'); do
+		for err in $(echo "${errors}" | cut -d ' ' -f "6"); do
 			if echo "${err}" | grep -E -q "[^0-9]+"; then
+				# Assume a non number value is > 1000
 				cksumErrors="1000"
 				break
 			fi
@@ -299,74 +332,126 @@ function ZpoolSummary () {
 		scrubRepBytes="N/A"
 		scrubErrors="N/A"
 		scrubAge="N/A"
-		scrubTime="N/A"
+		scrubDuration="N/A"
 		resilver=""
+		local statusOutputLine
+		local scrubYear
+		local scrubMonth
+		local scrubDay
+		local scrubTime
 
 		statusOutput="$(zpool status "${pool}")"
+		statusOutputLine="$(echo "${statusOutput}" | grep "scan:" | sed -e 's:[[:blank:]]\{1,\}: :g' -e 's:^[[:blank:]]*::')"
+
 		# normal status i.e. scrub
-		if [ "$(echo "${statusOutput}" | grep "scan:" | awk '{print $2" "$3}')" = "scrub repaired" ]; then
-			multiDay="$(echo "${statusOutput}" | grep "scan" | grep -c "days")"
-			scrubRepBytes="$(echo "${statusOutput}" | grep "scan:" | awk '{gsub(/B/,"",$4); print $4}')"
-			if [ "${multiDay}" -ge 1 ] ; then
-				scrubErrors="$(echo "${statusOutput}" | grep "scan:" | awk '{print $10}')"
-			else
-				scrubErrors="$(echo "${statusOutput}" | grep "scan:" | awk '{print $8}')"
-			fi
+		if [ "$(echo "${statusOutputLine}" | cut -d ' ' -f "2,3")" = "scrub repaired" ]; then
+			{
+			multiDay="$(echo "${statusOutputLine}" | grep -c "days")"
+			scrubRepBytes="$(echo "${statusOutputLine}" | cut -d ' ' -f "4" | sed -e 's:B::')"
 
 			# Convert time/datestamp format presented by zpool status, compare to current date, calculate scrub age
 			if [ "${multiDay}" -ge 1 ] ; then
-				scrubDate="$(echo "${statusOutput}" | grep "scan:" | awk '{print $17"-"$14"-"$15" "$16}')"
+				# We should test the version of zfs because there still is no json output
+				scrubYear="$(echo "${statusOutputLine}" | cut -d ' ' -f "17")"
+				scrubMonth="$(echo "${statusOutputLine}" | cut -d ' ' -f "14")"
+				scrubDay="$(echo "${statusOutputLine}" | cut -d ' ' -f "15")"
+				scrubTime="$(echo "${statusOutputLine}" | cut -d ' ' -f "16")"
+
+				scrubDuration="$(echo "${statusOutputLine}" | cut -d ' ' -f "6-8")"
+				scrubErrors="$(echo "${statusOutputLine}" | cut -d ' ' -f "10")"
 			else
-				scrubDate="$(echo "${statusOutput}" | grep "scan:" | awk '{print $15"-"$12"-"$13" "$14}')"
+				# We should test the version of zfs because there still is no json output
+				scrubYear="$(echo "${statusOutputLine}" | cut -d ' ' -f "15")"
+				scrubMonth="$(echo "${statusOutputLine}" | cut -d ' ' -f "12")"
+				scrubDay="$(echo "${statusOutputLine}" | cut -d ' ' -f "13")"
+				scrubTime="$(echo "${statusOutputLine}" | cut -d ' ' -f "14")"
+
+				scrubDuration="$(echo "${statusOutputLine}" | cut -d ' ' -f "6")"
+				scrubErrors="$(echo "${statusOutputLine}" | cut -d ' ' -f "8")"
 			fi
-			if [ "${systemType}" = "BSD" ]; then
-				scrubTS="$(date -j -f '%Y-%b-%e %H:%M:%S' "${scrubDate}" '+%s')"
-			else
-				scrubTS="$(date -d "${scrubDate}" '+%s')"
-			fi
-			currentTS="${runDate}"
+			scrubDate="${scrubYear}-${scrubMonth}-${scrubDay} ${scrubTime}"
+
+
+            if [ "${systemType}" = "BSD" ]; then
+                scrubTS="$(date -j -f '%Y-%b-%e %H:%M:%S' "${scrubDate}" '+%s')"
+            else
+                scrubTS="$(date -d "${scrubDate}" '+%s')"
+            fi
+            currentTS="${runDate}"
 			scrubAge="$((((currentTS - scrubTS) + 43200) / 86400))"
-			if [ "${multiDay}" -ge 1 ] ; then
-				scrubTime="$(echo "${statusOutput}" | grep "scan" | awk '{print $6" "$7" "$8}')"
-			else
-				scrubTime="$(echo "${statusOutput}" | grep "scan" | awk '{print $6}')"
-			fi
+			}
 
 		# if status is resilvered
-		elif [ "$(echo "${statusOutput}" | grep "scan:" | awk '{print $2}')" = "resilvered" ]; then
+		elif [ "$(echo "${statusOutputLine}" | cut -d ' ' -f "2")" = "resilvered" ]; then
+			{
 			resilver="<BR>Resilvered"
-			scrubRepBytes="$(echo "${statusOutput}" | grep "scan:" | awk '{print $3}')"
-			scrubErrors="$(echo "${statusOutput}" | grep "scan:" | awk '{print $7}')"
+			multiDay="$(echo "${statusOutput}" | grep "scan" | grep -c "days")"
+			scrubRepBytes="$(echo "${statusOutputLine}" | cut -d ' ' -f "3")"
 
 			# Convert time/datestamp format presented by zpool status, compare to current date, calculate scrub age
-			scrubDate="$(echo "${statusOutput}" | grep "scan:" | awk '{print $14"-"$11"-"$12" "$13}')"
-			if [ "${systemType}" = "BSD" ]; then
-				scrubTS="$(date -j -f '%Y-%b-%e %H:%M:%S' "${scrubDate}" '+%s')"
+			if [ "${multiDay}" -ge "1" ] ; then
+				# We should test the version of zfs because there still is no json output
+				scrubYear="$(echo "${statusOutputLine}" | cut -d ' ' -f "16")"
+				scrubMonth="$(echo "${statusOutputLine}" | cut -d ' ' -f "13")"
+				scrubDay="$(echo "${statusOutputLine}" | cut -d ' ' -f "14")"
+				scrubTime="$(echo "${statusOutputLine}" | cut -d ' ' -f "15")"
+
+				scrubDuration="$(echo "${statusOutputLine}" | cut -d ' ' -f "5-7")"
+				scrubErrors="$(echo "${statusOutputLine}" | cut -d ' ' -f "9")"
 			else
-				scrubTS="$(date -d "${scrubDate}" '+%s')"
+				# We should test the version of zfs because there still is no json output
+				scrubYear="$(echo "${statusOutputLine}" | cut -d ' ' -f "14")"
+				scrubMonth="$(echo "${statusOutputLine}" | cut -d ' ' -f "11")"
+				scrubDay="$(echo "${statusOutputLine}" | cut -d ' ' -f "12")"
+				scrubTime="$(echo "${statusOutputLine}" | cut -d ' ' -f "13")"
+
+				scrubDuration="$(echo "${statusOutputLine}" | cut -d ' ' -f "5")"
+				scrubErrors="$(echo "${statusOutputLine}" | cut -d ' ' -f "7")"
 			fi
+			scrubDate="${scrubYear}-${scrubMonth}-${scrubDay} ${scrubTime}"
+
+
+            if [ "${systemType}" = "BSD" ]; then
+                scrubTS="$(date -j -f '%Y-%b-%e %H:%M:%S' "${scrubDate}" '+%s')"
+            else
+                scrubTS="$(date -d "${scrubDate}" '+%s')"
+            fi
 			currentTS="${runDate}"
 			scrubAge="$((((currentTS - scrubTS) + 43200) / 86400))"
-			scrubTime="$(echo "${statusOutput}" | grep "scan:" | awk '{print $5}')"
+			}
 
 		# Check if resilver is in progress
-		elif [ "$(echo "${statusOutput}"| grep "scan:" | awk '{print $2}')" = "resilver" ]; then
+		elif [ "$(echo "${statusOutputLine}" | cut -d ' ' -f "2")" = "resilver" ]; then
+			{
 			scrubRepBytes="Resilver In Progress"
-			scrubAge="$(echo "${statusOutput}" | grep "resilvered," | awk '{print $3" done"}')"
-			scrubTime="$(echo "${statusOutput}" | grep "resilvered," | awk '{print $5"<br>to go"}')"
+			statusOutputLine="$(echo "${statusOutput}" | grep "resilvered," | sed -e 's:[[:blank:]]\{1,\}: :g' -e 's:^[[:blank:]]*::')"
+
+			scrubAge="$(echo "${statusOutputLine}" | cut -d ' ' -f "3") done"
+			scrubDuration="$(echo "${statusOutputLine}" | cut -d ' ' -f "5") <br> to go"
+			}
 
 		# Check if scrub is in progress
-		elif [ "$(echo "${statusOutput}"| grep "scan:" | awk '{print $4}')" = "progress" ]; then
+		elif [ "$(echo "${statusOutputLine}" | cut -d ' ' -f "4")" = "progress" ]; then
+			{
 			scrubRepBytes="Scrub In Progress"
-			scrubErrors="$(echo "${statusOutput}" | grep "repaired," | awk '{print $1" repaired"}')"
-			scrubAge="$(echo "${statusOutput}" | grep "repaired," | awk '{print $3" done"}')"
-			if [ "$(echo "${statusOutput}" | grep "repaired," | awk '{print $5}')" = "0" ]; then
-				scrubTime="$(echo "${statusOutput}" | grep "repaired," | awk '{print $7"<br>to go"}')"
+			statusOutputLine="$(echo "${statusOutput}" | grep "repaired," | sed -e 's:[[:blank:]]\{1,\}: :g' -e 's:^[[:blank:]]*::')"
+
+			scrubErrors="$(echo "${statusOutputLine}" | cut -d ' ' -f "1") repaired"
+			scrubAge="$(echo "${statusOutputLine}" | cut -d ' ' -f "3") done"
+
+			if [ "$(echo "${statusOutputLine}" | cut -d ' ' -f "5")" = "0" ]; then
+				scrubDuration="$(echo "${statusOutputLine}" | cut -d ' ' -f "7") <br> to go"
+			elif [ "$(echo "${statusOutputLine}" | cut -d ' ' -f "5")" = "no" ]; then
+				scrubDuration="Calculating"
+			elif [ "$(echo "${statusOutputLine}" | cut -d ' ' -f "6")" = "days" ]; then
+				scrubDuration="$(echo "${statusOutputLine}" | cut -d ' ' -f "5") <br> days to go"
 			else
-				scrubTime="$(echo "${statusOutput}" | grep "repaired," | awk '{print $5" "$6" "$7"<br>to go"}')"
+				scrubDuration="$(echo "${statusOutputLine}" | cut -d ' ' -f "5") <br> to go"
 			fi
+			}
 		fi
 
+		{
 		# Set the row background color
 		if [ "${altRow}" = "false" ]; then
 			local bgColor="#ffffff"
@@ -420,30 +505,33 @@ function ZpoolSummary () {
 			scrubErrorsColor="${bgColor}"
 		fi
 
-		if [ "$(echo "$scrubAge" | awk '{print int($1)}')" -gt "${scrubAgeWarn}" ]; then
+		if [ "$(bc <<< "scale=0;($(echo "${scrubAge}" | sed -e 's:% done$::')+0)/1")" -gt "${scrubAgeWarn}" ]; then
 			scrubAgeColor="${warnColor}"
 		else
 			scrubAgeColor="${bgColor}"
 		fi
+		}
 
 		{
 			# Use the information gathered above to write the date to the current table row
-			echo '<tr style="background-color:'"${bgColor}"'">'
-			echo '<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${pool}"'</td>'
-			echo '<td style="text-align:center; background-color:'"${statusColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${status}"'</td>'
-			echo '<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${size}"'</td>'
-			echo '<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${allocated}"'</td>'
-			echo '<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${free}"'</td>'
-			echo '<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${frag}"'%</td>'
-			echo '<td style="text-align:center; background-color:'"${usedColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${used}"'%</td>'
-			echo '<td style="text-align:center; background-color:'"${readErrorsColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${readErrors}"'</td>'
-			echo '<td style="text-align:center; background-color:'"${writeErrorsColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${writeErrors}"'</td>'
-			echo '<td style="text-align:center; background-color:'"${cksumErrorsColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${cksumErrors}"'</td>'
-			echo '<td style="text-align:center; background-color:'"${scrubRepBytesColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${scrubRepBytes}"'</td>'
-			echo '<td style="text-align:center; background-color:'"${scrubErrorsColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${scrubErrors}"'</td>'
-			echo '<td style="text-align:center; background-color:'"${scrubAgeColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${scrubAge}"'</td>'
-			echo '<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${scrubTime}"'</td>'
-			echo '</tr>'
+			tee <<- EOF
+				<tr style="background-color:${bgColor}">
+				<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${pool}</td>
+				<td style="text-align:center; background-color:${statusColor}; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${status}</td>
+				<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${size}</td>
+				<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${allocated}</td>
+				<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${free}</td>
+				<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${frag}%</td>
+				<td style="text-align:center; background-color:${usedColor}; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${used}%</td>
+				<td style="text-align:center; background-color:${readErrorsColor}; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${readErrors}</td>
+				<td style="text-align:center; background-color:${writeErrorsColor}; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${writeErrors}</td>
+				<td style="text-align:center; background-color:${cksumErrorsColor}; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${cksumErrors}</td>
+				<td style="text-align:center; background-color:${scrubRepBytesColor}; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${scrubRepBytes}</td>
+				<td style="text-align:center; background-color:${scrubErrorsColor}; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${scrubErrors}</td>
+				<td style="text-align:center; background-color:${scrubAgeColor}; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${scrubAge}</td>
+				<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${scrubDuration}</td>
+				</tr>
+EOF
 		} >> "${logfile}"
 	done
 
@@ -457,44 +545,46 @@ function NVMeSummary () {
 	###### NVMe SMART status summary table
 	{
 		# Write HTML table headers to log file
-		echo '<br><br>'
-		echo '<table style="border: 1px solid black; border-collapse: collapse;">'
-		echo '<tr><th colspan="18" style="text-align:center; font-size:20px; height:40px; font-family:courier;">NVMe SMART Status Report Summary</th></tr>'
-		echo '<tr>'
+		tee <<- EOF
+			<br><br>
+			<table style="border: 1px solid black; border-collapse: collapse;">
+			<tr><th colspan="18" style="text-align:center; font-size:20px; height:40px; font-family:courier;">NVMe SMART Status Report Summary</th></tr>
+			<tr>
 
-		echo '  <th style="text-align:center; width:100px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Device</th>' # Device
+			  <th style="text-align:center; width:100px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Device</th> <!-- Device -->
 
-		echo '  <th style="text-align:center; width:140px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Model</th>' # Model
+			  <th style="text-align:center; width:140px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Model</th> <!-- Model -->
 
-		echo '  <th style="text-align:center; width:130px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Serial<br>Number</th>' # Serial Number
+			  <th style="text-align:center; width:130px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Serial<br>Number</th> <!-- Serial Number -->
 
-		echo '  <th style="text-align:center; width:90px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Capacity</th>' # Capacity
+			  <th style="text-align:center; width:90px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Capacity</th> <!-- Capacity -->
 
-		echo '  <th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">SMART<br>Status</th>' # SMART Status
+			  <th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">SMART<br>Status</th> <!-- SMART Status -->
 
-		echo '  <th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Temp</th>' # Temp
+			  <th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Temp</th> <!-- Temp -->
 
-		echo '  <th style="text-align:center; width:120px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Power-On<br>Time<br>('"$powerTimeFormat"')</th>' # Power-On Time
+			  <th style="text-align:center; width:120px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Power-On<br>Time<br>($powerTimeFormat)</th> <!-- Power-On Time -->
 
-		echo '  <th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Power<br>Cycle<br>Count</th>' # Power Cycle Count
+			  <th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Power<br>Cycle<br>Count</th> <!-- Power Cycle Count -->
 
-		echo '  <th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Integrity<br>Errors</th>' # Integrity Errors
+			  <th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Integrity<br>Errors</th> <!-- Integrity Errors -->
 
-		echo '  <th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Error<br>Log<br>Entries</th>' # Error Log Entries
+			  <th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Error<br>Log<br>Entries</th> <!-- Error Log Entries -->
 
-		echo '  <th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Critical<br>Warning</th>' # Critical Warning
+			  <th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Critical<br>Warning</th> <!-- Critical Warning -->
 
-		echo '  <th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Wear<br>Leveling<br>Count</th>' # Wear Leveling Count
+			  <th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Wear<br>Leveling<br>Count</th> <!-- Wear Leveling Count -->
 
-		echo '  <th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Total<br>Bytes<br>Written</th>' # Total Bytes Written
+			  <th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Total<br>Bytes<br>Written</th> <!-- Total Bytes Written -->
 
-		echo '  <th style="text-align:center; width:100px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Bytes Written<br>(per Day)</th>' # Bytes Written (per Day)
+			  <th style="text-align:center; width:100px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Bytes Written<br>(per Day)</th> <!-- Bytes Written (per Day) -->
 
-		echo '  <th style="text-align:center; width:100px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Last Test<br>Age (days)</th>' # Last Test Age (days)
+			  <th style="text-align:center; width:100px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Last Test<br>Age (days)</th> <!-- Last Test Age (days) -->
 
-		echo '  <th style="text-align:center; width:100px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Last Test<br>Type</th></tr>' # Last Test Type
+			  <th style="text-align:center; width:100px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Last Test<br>Type</th></tr> <!-- Last Test Type -->
 
-		echo '</tr>'
+			</tr>
+EOF
 	} >> "${logfile}"
 
 
@@ -524,13 +614,66 @@ function NVMeSummary () {
 			local wearLeveling="$(echo "${nvmeSmarOut}" | jq -Mre '.nvme_smart_health_information_log.available_spare | values')"
 			local totalLBA="$(echo "${nvmeSmarOut}" | jq -Mre '.nvme_smart_health_information_log.data_units_written | values')"
 
-			local capacity="$(smartctl -i "/dev/${drive}" | grep '^Namespace 1 Size' | tr -s ' ' | cut -d ' ' -sf '5,6')" # FixMe: have not yet figured out how to best calculate this from json values
-
 			if [ "$(echo "${nvmeSmarOut}" | jq -Mre '.smart_status.passed | values')" = "true" ]; then
 				local smartStatus="PASSED"
 			else
 				local smartStatus="FAILED"
 			fi
+
+
+			## Make override adjustments
+			{
+			local serialMatch
+			# onHours
+			serialMatch="_${serial}[onHours]"
+			if [ ! -z "${!serialMatch}" ]; then
+				onHours="$(bc <<< "${onHours} ${!serialMatch}")"
+			fi
+
+			# mediaErrors
+			serialMatch="_${serial}[mediaErrors]"
+			if [ ! -z "${!serialMatch}" ]; then
+				mediaErrors="$(bc <<< "${mediaErrors} ${!serialMatch}")"
+			fi
+
+			# errorsLogs
+			serialMatch="_${serial}[errorsLogs]"
+			if [ ! -z "${!serialMatch}" ]; then
+				errorsLogs="$(bc <<< "${errorsLogs} ${!serialMatch}")"
+			fi
+
+			# critWarning
+			serialMatch="_${serial}[critWarning]"
+			if [ ! -z "${!serialMatch}" ]; then
+				critWarning="$(bc <<< "${critWarning} ${!serialMatch}")"
+			fi
+
+			# wearLeveling
+			serialMatch="_${serial}[wearLeveling]"
+			if [ ! -z "${!serialMatch}" ]; then
+				wearLeveling="$(bc <<< "${wearLeveling} ${!serialMatch}")"
+			fi
+			}
+
+
+			## Formatting
+			# Calculate capacity for user consumption
+			local capacityByte="$(echo "${nvmeSmarOut}" | jq -Mre '.user_capacity.bytes | values')"
+			: "${capacityByte:="0"}"
+
+			if [ "${#capacityByte}" -gt "12" ]; then
+				local capacitySufx=" TB"
+				local capacityExp="12"
+			elif [ "${#capacityByte}" -gt "9" ]; then
+				local capacitySufx=" GB"
+				local capacityExp="9"
+			else
+				local capacitySufx=""
+				local capacityExp="1"
+			fi
+
+			local capacityPre="$(bc <<< "scale=2; ${capacityByte} / (1e${capacityExp})" | head -c 4 | sed -e 's:\.$::')"
+			local capacity="[${capacityPre}${capacitySufx}]"
 
 			# Get more useful times from hours
 			local testAge="$(bc <<< "(${onHours} - (${onHours} - 2) ) / 24")" # ${lastTestHours}
@@ -572,7 +715,7 @@ function NVMeSummary () {
 			if [ "${temp}" -ge "${ssdTempCrit}" ]; then
 				local tempColor="${critColor}"
 			elif [ "${temp}" -ge "${ssdTempWarn}" ]; then
-				tempColor="${warnColor}"
+				local tempColor="${warnColor}"
 			else
 				local tempColor="${bgColor}"
 			fi
@@ -644,32 +787,34 @@ function NVMeSummary () {
 
 			# Colorize test age
 			if [ "${testAge}" -gt "${testAgeWarn}" ]; then
-				testAgeColor="${critColor}"
+				local testAgeColor="${critColor}"
 			else
-				testAgeColor="${bgColor}"
+				local testAgeColor="${bgColor}"
 			fi
 
 
 			{
 				# Output the row
-				echo '<tr style="background-color:'"${bgColor}"';">'
-				echo '<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"/dev/${drive}"'</td> <!-- device -->'
-				echo '<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${model}"'</td> <!-- model -->'
-				echo '<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${serial}"'</td> <!-- serial -->'
-				echo '<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${capacity}"'</td> <!-- capacity -->'
-				echo '<td style="text-align:center; background-color:'"${smartStatusColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${smartStatus}"'</td> <!-- smartStatusColor, smartStatus -->'
-				echo '<td style="text-align:center; background-color:'"${tempColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${temp}"'</td> <!-- tempColor, temp -->'
-				echo '<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${onTime}"'</td> <!-- onTime -->'
-				echo '<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${startStop}"'</td> <!-- startStop -->'
-				echo '<td style="text-align:center; background-color:'"${mediaErrorsColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${mediaErrors}"'</td> <!-- mediaErrorsColor, mediaErrors -->'
-				echo '<td style="text-align:center; background-color:'"${errorsLogsColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${errorsLogs}"'</td> <!-- errorsLogsColor, errorsLogs -->'
-				echo '<td style="text-align:center; background-color:'"${critWarningColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${critWarning}"'</td> <!-- critWarningColor, critWarning -->'
-				echo '<td style="text-align:center; background-color:'"${wearLevelingColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${wearLeveling}"'</td> <!-- wearLevelingColor, wearLeveling -->'
-				echo '<td style="text-align:center; background-color:'"${totalBWColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${totalBW}"'</td> <!-- totalBWColor, totalBW -->'
-				echo '<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${bwPerDay}"'</td> <!-- bwPerDay -->'
-				echo '<td style="text-align:center; background-color:'"${testAgeColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">N/A</td> <!-- testAgeColor, testAge -->'
-				echo '<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;\">N/A</td> <!-- lastTestType -->'
-				echo '</tr>'
+				tee <<- EOF
+					<tr style="background-color:${bgColor};">
+					<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">/dev/${drive}</td> <!-- device -->
+					<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${model}</td> <!-- model -->
+					<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${serial}</td> <!-- serial -->
+					<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${capacity}</td> <!-- capacity -->
+					<td style="text-align:center; background-color:${smartStatusColor}; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${smartStatus}</td> <!-- smartStatusColor, smartStatus -->
+					<td style="text-align:center; background-color:${tempColor}; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${temp}</td> <!-- tempColor, temp -->
+					<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${onTime}</td> <!-- onTime -->
+					<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${startStop}</td> <!-- startStop -->
+					<td style="text-align:center; background-color:${mediaErrorsColor}; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${mediaErrors}</td> <!-- mediaErrorsColor, mediaErrors -->
+					<td style="text-align:center; background-color:${errorsLogsColor}; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${errorsLogs}</td> <!-- errorsLogsColor, errorsLogs -->
+					<td style="text-align:center; background-color:${critWarningColor}; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${critWarning}</td> <!-- critWarningColor, critWarning -->
+					<td style="text-align:center; background-color:${wearLevelingColor}; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${wearLeveling}</td> <!-- wearLevelingColor, wearLeveling -->
+					<td style="text-align:center; background-color:${totalBWColor}; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${totalBW}</td> <!-- totalBWColor, totalBW -->
+					<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${bwPerDay}</td> <!-- bwPerDay -->
+					<td style="text-align:center; background-color:${testAgeColor}; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">N/A</td> <!-- testAgeColor, testAge -->
+					<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">N/A</td> <!-- lastTestType -->
+					</tr>
+EOF
 			} >> "${logfile}"
 		fi
 	done
@@ -683,40 +828,43 @@ function NVMeSummary () {
 # shellcheck disable=SC2155
 function SSDSummary () {
 	###### SSD SMART status summary table
-    {
-        # Write HTML table headers to log file
-        echo '<br><br>'
-        echo '<table style="border: 1px solid black; border-collapse: collapse;">'
-        echo '<tr><th colspan="18" style="text-align:center; font-size:20px; height:40px; font-family:courier;">SSD SMART Status Report Summary</th></tr>'
-        echo '<tr>'
-        echo '<th style="text-align:center; width:100px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Device</th>'
-        echo '<th style="text-align:center; width:130px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Model</th>'
-        echo '<th style="text-align:center; width:130px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Serial<br>Number</th>'
-        echo '<th style="text-align:center; width:100px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Capacity</th>'
-        echo '<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">SMART<br>Status</th>'
-        echo '<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Temp</th>'
-        echo '<th style="text-align:center; width:120px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Power-On<br>Time<br>('"${powerTimeFormat}"')</th>'
-        echo '<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Power<br>Cycle<br>Count</th>'
-        echo '<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Realloc<br>Sectors</th>'
-        echo '<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Program<br>Fail<br>Count</th>'
-        echo '<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Erase<br>Fail<br>Count</th>'
-        echo '<th style="text-align:center; width:120px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Offline<br>Uncorrectable<br>Sectors</th>'
-        echo '<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">CRC<br>Errors</th>'
-        echo '<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Wear<br>Leveling<br>Count</th>'
-        echo '<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Total<br>Bytes<br>Written</th>'
-        echo '<th style="text-align:center; width:100px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Bytes Written<br>(per Day)</th>'
-        echo '<th style="text-align:center; width:100px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Last Test<br>Age (days)</th>'
-        echo '<th style="text-align:center; width:100px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Last Test<br>Type</th></tr>'
-        echo '</tr>'
-    } >> "${logfile}"
+	{
+		# Write HTML table headers to log file
+		tee <<- EOF
+			<br><br>
+			<table style="border: 1px solid black; border-collapse: collapse;">
+			<tr><th colspan="18" style="text-align:center; font-size:20px; height:40px; font-family:courier;">SSD SMART Status Report Summary</th></tr>
+			<tr>
+			<th style="text-align:center; width:100px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Device</th>
+			<th style="text-align:center; width:130px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Model</th>
+			<th style="text-align:center; width:130px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Serial<br>Number</th>
+			<th style="text-align:center; width:100px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Capacity</th>
+			<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">SMART<br>Status</th>
+			<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Temp</th>
+			<th style="text-align:center; width:120px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Power-On<br>Time<br>(${powerTimeFormat})</th>
+			<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Power<br>Cycle<br>Count</th>
+			<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Realloc<br>Sectors</th>
+			<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Program<br>Fail<br>Count</th>
+			<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Erase<br>Fail<br>Count</th>
+			<th style="text-align:center; width:120px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Offline<br>Uncorrectable<br>Sectors</th>
+			<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">CRC<br>Errors</th>
+			<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Wear<br>Leveling<br>Count</th>
+			<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Total<br>Bytes<br>Written</th>
+			<th style="text-align:center; width:100px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Bytes Written<br>(per Day)</th>
+			<th style="text-align:center; width:100px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Last Test<br>Age (days)</th>
+			<th style="text-align:center; width:100px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Last Test<br>Type</th></tr>
+			</tr>
+EOF
+	} >> "${logfile}"
 
 	local drive
 	local altRow="false"
     for drive in "${drives[@]}"; do
-		local ssdInfoSmrt="$(smartctl -AHijl selftest --log="devstat" "/dev/${drive}")"
+		local ssdInfoSmrt="$(smartctl -AHijl xselftest,selftest --log="devstat" "/dev/${drive}")"
     	local rotTst="$(echo "${ssdInfoSmrt}" | jq -Mre '.rotation_rate | values')"
-        if [ "${rotTst}" = "0" ]; then
-			# For each drive detected, run "smartctl -AHijl selftest" and parse its output.
+    	local scsiTst="$(echo "${ssdInfoSmrt}" | jq -Mre '.device.type | values')"
+        if [ "${rotTst}" = "0" ] && [ ! "${scsiTst}" = "scsi" ]; then
+			# For each drive detected, run "smartctl -AHijl xselftest,selftest" and parse its output.
 			# Start by parsing out the variables used in other parts of the script.
 			# After parsing the output, compute other values (last test's age, on time in YY-MM-DD-HH).
 			# After these computations, determine the row's background color (alternating as above, subbing in other colors from the palate as needed).
@@ -724,8 +872,15 @@ function SSDSummary () {
 			local device="${drive}"
 
 			# Available if any tests have completed
-			local lastTestHours="$(echo "${ssdInfoSmrt}" | jq -Mre '.ata_smart_self_test_log.standard.table[0].lifetime_hours | values')"
-			local lastTestType="$(echo "${ssdInfoSmrt}" | jq -Mre '.ata_smart_self_test_log.standard.table[0].type.string | values')"
+			if [ ! -z "$(echo "${ssdInfoSmrt}" | jq -Mre '.ata_smart_self_test_log.extended.table | values')" ]; then
+				local lastTestHours="$(echo "${ssdInfoSmrt}" | jq -Mre '.ata_smart_self_test_log.extended.table[0].lifetime_hours | values')"
+				local lastTestType="$(echo "${ssdInfoSmrt}" | jq -Mre '.ata_smart_self_test_log.extended.table[0].type.string | values')"
+				local lastTestStatus="$(echo "${ssdInfoSmrt}" | jq -Mre '.ata_smart_self_test_log.extended.table[0].status.passed | values')"
+			else
+				local lastTestHours="$(echo "${ssdInfoSmrt}" | jq -Mre '.ata_smart_self_test_log.standard.table[0].lifetime_hours | values')"
+				local lastTestType="$(echo "${ssdInfoSmrt}" | jq -Mre '.ata_smart_self_test_log.standard.table[0].type.string | values')"
+				local lastTestStatus="$(echo "${ssdInfoSmrt}" | jq -Mre '.ata_smart_self_test_log.standard.table[0].status.passed | values')"
+			fi
 
 			# Available for any drive smartd knows about
 			if [ "$(echo "${ssdInfoSmrt}" | jq -Mre '.smart_status.passed | values')" = "true" ]; then
@@ -736,9 +891,6 @@ function SSDSummary () {
 
 			local model="$(echo "${ssdInfoSmrt}" | jq -Mre '.model_name | values')"
 			local serial="$(echo "${ssdInfoSmrt}" | jq -Mre '.serial_number | values')"
-
-			local capacity="$(smartctl -i "/dev/${drive}" | grep '^User Capacity:' | tr -s ' ' | cut -d ' ' -sf '5,6')" # FixMe: have not yet figured out how to best calculate this from json values
-
 			local temp="$(echo "${ssdInfoSmrt}" | jq -Mre '.temperature.current | values')"
 			local onHours="$(echo "${ssdInfoSmrt}" | jq -Mre '.power_on_time.hours | values')"
 			local startStop="$(echo "${ssdInfoSmrt}" | jq -Mre '.power_cycle_count | values')"
@@ -771,10 +923,88 @@ function SSDSummary () {
 			fi
 
 
+			## Make override adjustments
+			{
+			local serialMatch
+			# lastTestHours
+			serialMatch="_${serial}[lastTestHours]"
+			if [ ! -z "${!serialMatch}" ]; then
+				lastTestHours="$(bc <<< "${lastTestHours} ${!serialMatch}")"
+			fi
+
+			# onHours
+			serialMatch="_${serial}[onHours]"
+			if [ ! -z "${!serialMatch}" ]; then
+				onHours="$(bc <<< "${onHours} ${!serialMatch}")"
+			fi
+
+			# reAlloc
+			serialMatch="_${serial}[reAlloc]"
+			if [ ! -z "${!serialMatch}" ]; then
+				reAlloc="$(bc <<< "${reAlloc} ${!serialMatch}")"
+			fi
+
+			# progFail
+			serialMatch="_${serial}[progFail]"
+			if [ ! -z "${!serialMatch}" ]; then
+				progFail="$(bc <<< "${progFail} ${!serialMatch}")"
+			fi
+
+			# eraseFail
+			serialMatch="_${serial}[eraseFail]"
+			if [ ! -z "${!serialMatch}" ]; then
+				eraseFail="$(bc <<< "${eraseFail} ${!serialMatch}")"
+			fi
+
+			# offlineUnc
+			serialMatch="_${serial}[offlineUnc]"
+			if [ ! -z "${!serialMatch}" ]; then
+				offlineUnc="$(bc <<< "${offlineUnc} ${!serialMatch}")"
+			fi
+
+			# crcErrors
+			serialMatch="_${serial}[crcErrors]"
+			if [ ! -z "${!serialMatch}" ]; then
+				crcErrors="$(bc <<< "${crcErrors} ${!serialMatch}")"
+			fi
+
+			# wearLeveling
+			serialMatch="_${serial}[wearLeveling]"
+			if [ ! -z "${!serialMatch}" ]; then
+				wearLeveling="$(bc <<< "${wearLeveling} ${!serialMatch}")"
+			fi
+			}
+
+
+			## Formatting
+			# Calculate capacity for user consumption
+			local capacityByte="$(echo "${ssdInfoSmrt}" | jq -Mre '.user_capacity.bytes | values')"
+			: "${capacityByte:="0"}"
+
+			if [ "${#capacityByte}" -gt "12" ]; then
+				local capacitySufx=" TB"
+				local capacityExp="12"
+			elif [ "${#capacityByte}" -gt "9" ]; then
+				local capacitySufx=" GB"
+				local capacityExp="9"
+			else
+				local capacitySufx=""
+				local capacityExp="1"
+			fi
+
+			local capacityPre="$(bc <<< "scale=2; ${capacityByte} / (1e${capacityExp})" | head -c 4 | sed -e 's:\.$::')"
+			local capacity="[${capacityPre}${capacitySufx}]"
+
 			# Get more useful times from hours
-			local testAge
+			local testAge=""
 			if [ ! -z "${lastTestHours}" ]; then
-				testAge="$(bc <<< "(${onHours} - ${lastTestHours}) / 24")"
+				# Check whether the selftest log times have overflowed after 65,535 hours of total power-on time
+				overflowTest="$((onHours - lastTestHours))"
+				if [ "${overflowTest}" -gt "65535" ]; then # Correct the overflow if necessary
+					testAge="$(bc <<< "(${onHours} - ${lastTestHours} - 65535) / 24")"
+				else # Normal Case, no overflow
+					testAge="$(bc <<< "(${onHours} - ${lastTestHours}) / 24")"
+				fi
 			fi
 
 			local yrs="$(bc <<< "${onHours} / 8760")"
@@ -811,11 +1041,18 @@ function SSDSummary () {
 				local smartStatusColor="${okColor}"
 			fi
 
+			# Colorize Smart test Status
+			if [ "${lastTestStatus}" = "false" ]; then
+				local lastTestStatusColor="${critColor}"
+			else
+				local lastTestStatusColor="${bgColor}"
+			fi
+
 			# Colorize Temp
 			if [ "${temp:="0"}" -ge "${ssdTempCrit}" ]; then
 				local tempColor="${critColor}"
 			elif [ "${temp}" -ge "${ssdTempWarn}" ]; then
-				tempColor="${warnColor}"
+				local tempColor="${warnColor}"
 			else
 				local tempColor="${bgColor}"
 			fi
@@ -907,34 +1144,36 @@ function SSDSummary () {
 
 			# Colorize test age
 			if [ "${testAge:-0}" -gt "${testAgeWarn}" ]; then
-				testAgeColor="${critColor}"
+				local testAgeColor="${critColor}"
 			else
-				testAgeColor="${bgColor}"
+				local testAgeColor="${bgColor}"
 			fi
 
 
             {
 				# Row Output
-				echo '<tr style="background-color:'"${bgColor}"';">'
-				echo '<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"/dev/${device}"'</td>'
-				echo '<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${model}"'</td>'
-				echo '<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${serial}"'</td>'
-				echo '<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${capacity}"'</td>'
-				echo '<td style="text-align:center; background-color:'"${smartStatusColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${smartStatus}"'</td>'
-				echo '<td style="text-align:center; background-color:'"${tempColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${temp}"'</td>'
-				echo '<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${onTime}"'</td>'
-				echo '<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${startStop}"'</td>'
-				echo '<td style="text-align:center; background-color:'"${reAllocColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${reAlloc}"'</td>'
-				echo '<td style="text-align:center; background-color:'"${progFailColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${progFail}"'</td>'
-				echo '<td style="text-align:center; background-color:'"${eraseFailColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${eraseFail}"'</td>'
-				echo '<td style="text-align:center; background-color:'"${offlineUncColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${offlineUnc}"'</td>'
-				echo '<td style="text-align:center; background-color:'"${crcErrorsColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${crcErrors}"'</td>'
-				echo '<td style="text-align:center; background-color:'"${wearLevelingColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${wearLeveling:=N/A}"'%</td>'
-				echo '<td style="text-align:center; background-color:'"${totalBWColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${totalBW}"'</td>'
-				echo '<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${bwPerDay}"'</td>'
-				echo '<td style="text-align:center; background-color:'"${testAgeColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${testAge:-"N/A"}"'</td>'
-				echo '<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${lastTestType:-"N/A"}"'</td>'
-				echo '</tr>'
+				tee <<- EOF
+					<tr style="background-color:${bgColor};">
+					<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">/dev/${device}</td>
+					<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${model}</td>
+					<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${serial}</td>
+					<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${capacity}</td>
+					<td style="text-align:center; background-color:${smartStatusColor}; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${smartStatus}</td>
+					<td style="text-align:center; background-color:${tempColor}; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${temp}</td>
+					<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${onTime}</td>
+					<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${startStop}</td>
+					<td style="text-align:center; background-color:${reAllocColor}; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${reAlloc}</td>
+					<td style="text-align:center; background-color:${progFailColor}; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${progFail}</td>
+					<td style="text-align:center; background-color:${eraseFailColor}; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${eraseFail}</td>
+					<td style="text-align:center; background-color:${offlineUncColor}; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${offlineUnc}</td>
+					<td style="text-align:center; background-color:${crcErrorsColor}; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${crcErrors}</td>
+					<td style="text-align:center; background-color:${wearLevelingColor}; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${wearLeveling:=N/A}%</td>
+					<td style="text-align:center; background-color:${totalBWColor}; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${totalBW}</td>
+					<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${bwPerDay}</td>
+					<td style="text-align:center; background-color:${testAgeColor}; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${testAge:-"N/A"}</td>
+					<td style="text-align:center; background-color:${lastTestStatusColor}; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${lastTestType:-"N/A"}</td>
+					</tr>
+EOF
             } >> "${logfile}"
         fi
     done
@@ -950,38 +1189,44 @@ function HDDSummary () {
 	###### HDD SMART status summary table
 	{
 		# Write HTML table headers to log file
-		echo '<br><br>'
-		echo '<table style="border: 1px solid black; border-collapse: collapse;">'
-		echo '<tr><th colspan="18" style="text-align:center; font-size:20px; height:40px; font-family:courier;">HDD SMART Status Report Summary</th></tr>'
-		echo '<tr>'
-		echo '<th style="text-align:center; width:100px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Device</th>'
-		echo '<th style="text-align:center; width:130px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Model</th>'
-		echo '<th style="text-align:center; width:130px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Serial<br>Number</th>'
-		echo '<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">RPM</th>'
-		echo '<th style="text-align:center; width:100px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Capacity</th>'
-		echo '<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">SMART<br>Status</th>'
-		echo '<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Temp</th>'
-		echo '<th style="text-align:center; width:120px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Power-On<br>Time<br>('"${powerTimeFormat}"')</th>'
-		echo '<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Start<br>Stop<br>Count</th>'
-		echo '<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Spin<br>Retry<br>Count</th>'
-		echo '<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Realloc<br>Sectors</th>'
-		echo '<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Realloc<br>Events</th>'
-		echo '<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Current<br>Pending<br>Sectors</th>'
-		echo '<th style="text-align:center; width:120px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Offline<br>Uncorrectable<br>Sectors</th>'
-		echo '<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">CRC<br>Errors</th>'
-		echo '<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Seek<br>Error<br>Health</th>'
-		echo '<th style="text-align:center; width:100px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Last Test<br>Age (days)</th>'
-		echo '<th style="text-align:center; width:100px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Last Test<br>Type</th></tr>'
-		echo '</tr>'
+		tee <<- EOF
+			<br><br>
+			<table style="border: 1px solid black; border-collapse: collapse;">
+			<tr><th colspan="18" style="text-align:center; font-size:20px; height:40px; font-family:courier;">HDD SMART Status Report Summary</th></tr>
+			<tr>
+			<th style="text-align:center; width:100px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Device</th>
+			<th style="text-align:center; width:130px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Model</th>
+			<th style="text-align:center; width:130px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Serial<br>Number</th>
+			<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">RPM</th>
+			<th style="text-align:center; width:100px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Capacity</th>
+			<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">SMART<br>Status</th>
+			<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Temp</th>
+			<th style="text-align:center; width:120px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Power-On<br>Time<br>(${powerTimeFormat})</th>
+			<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Start<br>Stop<br>Count</th>
+			<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Spin<br>Retry<br>Count</th>
+			<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Realloc<br>Sectors</th>
+			<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Realloc<br>Events</th>
+			<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Current<br>Pending<br>Sectors</th>
+			<th style="text-align:center; width:120px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Offline<br>Uncorrectable<br>Sectors</th>
+			<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">CRC<br>Errors</th>
+			<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Seek<br>Error<br>Health</th>
+			<th style="text-align:center; width:100px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Last Test<br>Age (days)</th>
+			<th style="text-align:center; width:100px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Last Test<br>Type</th></tr>
+			</tr>
+EOF
 	} >> "${logfile}"
 
 	local drive
 	local altRow="false"
 	for drive in "${drives[@]}"; do
-		local hddInfoSmrt="$(smartctl -AHijl selftest "/dev/${drive}")"
+		local hddInfoSmrt="$(smartctl -AHijl xselftest,selftest "/dev/${drive}")"
 		local rotTst="$(echo "${hddInfoSmrt}" | jq -Mre '.rotation_rate | values')"
-		if [ ! "${rotTst:="0"}" = "0" ]; then
-			# For each drive detected, run "smartctl -AHijl selftest" and parse its output.
+		local scsiTst="$(echo "${hddInfoSmrt}" | jq -Mre '.device.type | values')"
+		if [ -z "${rotTst}" ] && [ ! -z "$(echo "${hddInfoSmrt}" | jq -Mre '.ata_smart_attributes.table[]? | select(.name == "Spin_Up_Time") | .id | values')" ]; then
+			rotTst="N/R"
+		fi
+		if [ ! "${rotTst:="0"}" = "0" ] && [ ! "${scsiTst}" = "scsi" ]; then
+			# For each drive detected, run "smartctl -AHijl xselftest,selftest" and parse its output.
 			# After parsing the output, compute other values (last test's age, on time in YY-MM-DD-HH).
 			# After these computations, determine the row's background color (alternating as above, subbing in other colors from the palate as needed).
 			# Finally, print the HTML code for the current row of the table with all the gathered data.
@@ -989,8 +1234,15 @@ function HDDSummary () {
 			local device="${drive}"
 
 			# Available if any tests have completed
-			local lastTestHours="$(echo "${hddInfoSmrt}" | jq -Mre '.ata_smart_self_test_log.standard.table[0].lifetime_hours | values')"
-			local lastTestType="$(echo "${hddInfoSmrt}" | jq -Mre '.ata_smart_self_test_log.standard.table[0].type.string | values')"
+			if [ ! -z "$(echo "${hddInfoSmrt}" | jq -Mre '.ata_smart_self_test_log.extended.table | values')" ]; then
+				local lastTestHours="$(echo "${hddInfoSmrt}" | jq -Mre '.ata_smart_self_test_log.extended.table[0].lifetime_hours | values')"
+				local lastTestType="$(echo "${hddInfoSmrt}" | jq -Mre '.ata_smart_self_test_log.extended.table[0].type.string | values')"
+				local lastTestStatus="$(echo "${hddInfoSmrt}" | jq -Mre '.ata_smart_self_test_log.extended.table[0].status.passed | values')"
+			else
+				local lastTestHours="$(echo "${hddInfoSmrt}" | jq -Mre '.ata_smart_self_test_log.standard.table[0].lifetime_hours | values')"
+				local lastTestType="$(echo "${hddInfoSmrt}" | jq -Mre '.ata_smart_self_test_log.standard.table[0].type.string | values')"
+				local lastTestStatus="$(echo "${hddInfoSmrt}" | jq -Mre '.ata_smart_self_test_log.standard.table[0].status.passed | values')"
+			fi
 
 			# Available for any drive smartd knows about
 			if [ "$(echo "${hddInfoSmrt}" | jq -Mre '.smart_status.passed | values')" = "true" ]; then
@@ -1002,9 +1254,6 @@ function HDDSummary () {
 			local model="$(echo "${hddInfoSmrt}" | jq -Mre '.model_name | values')"
 			local serial="$(echo "${hddInfoSmrt}" | jq -Mre '.serial_number | values')"
 			local rpm="$(echo "${hddInfoSmrt}" | jq -Mre '.rotation_rate | values')"
-
-			local capacity="$(smartctl -i "/dev/${drive}" | grep '^User Capacity:' | tr -s ' ' | cut -d ' ' -sf '5,6')" # FixMe: have not yet figured out how to best calculate this from json values
-
 			local temp="$(echo "${hddInfoSmrt}"| jq -Mre '.temperature.current | values')"
 			local onHours="$(echo "${hddInfoSmrt}" | jq -Mre '.power_on_time.hours | values')"
 			local startStop="$(echo "${hddInfoSmrt}" | jq -Mre '.power_cycle_count | values')"
@@ -1019,10 +1268,94 @@ function HDDSummary () {
 			local seekErrorHealth="$(echo "${hddInfoSmrt}" | jq -Mre '.ata_smart_attributes.table[] | select(.id == 7) | .value | values')"
 
 
+			## Make override adjustments
+			{
+			local serialMatch
+			# lastTestHours
+			serialMatch="_${serial}[lastTestHours]"
+			if [ ! -z "${!serialMatch}" ]; then
+				lastTestHours="$(bc <<< "${lastTestHours} ${!serialMatch}")"
+			fi
+
+			# onHours
+			serialMatch="_${serial}[onHours]"
+			if [ ! -z "${!serialMatch}" ]; then
+				onHours="$(bc <<< "${onHours} ${!serialMatch}")"
+			fi
+
+			# reAlloc
+			serialMatch="_${serial}[reAlloc]"
+			if [ ! -z "${!serialMatch}" ]; then
+				reAlloc="$(bc <<< "${reAlloc} ${!serialMatch}")"
+			fi
+
+			# spinRetry
+			serialMatch="_${serial}[spinRetry]"
+			if [ ! -z "${!serialMatch}" ]; then
+				spinRetry="$(bc <<< "${spinRetry} ${!serialMatch}")"
+			fi
+
+			# reAllocEvent
+			serialMatch="_${serial}[reAllocEvent]"
+			if [ ! -z "${!serialMatch}" ]; then
+				reAllocEvent="$(bc <<< "${reAllocEvent} ${!serialMatch}")"
+			fi
+
+			# pending
+			serialMatch="_${serial}[pending]"
+			if [ ! -z "${!serialMatch}" ]; then
+				pending="$(bc <<< "${pending} ${!serialMatch}")"
+			fi
+
+			# offlineUnc
+			serialMatch="_${serial}[offlineUnc]"
+			if [ ! -z "${!serialMatch}" ]; then
+				offlineUnc="$(bc <<< "${offlineUnc} ${!serialMatch}")"
+			fi
+
+			# crcErrors
+			serialMatch="_${serial}[crcErrors]"
+			if [ ! -z "${!serialMatch}" ]; then
+				crcErrors="$(bc <<< "${crcErrors} ${!serialMatch}")"
+			fi
+
+			# seekErrorHealth
+			serialMatch="_${serial}[seekErrorHealth]"
+			if [ ! -z "${!serialMatch}" ]; then
+				seekErrorHealth="$(bc <<< "${seekErrorHealth} ${!serialMatch}")"
+			fi
+			}
+
+
+			## Formatting
+			# Calculate capacity for user consumption
+			local capacityByte="$(echo "${hddInfoSmrt}" | jq -Mre '.user_capacity.bytes | values')"
+			: "${capacityByte:="0"}"
+
+			if [ "${#capacityByte}" -gt "12" ]; then
+				local capacitySufx=" TB"
+				local capacityExp="12"
+			elif [ "${#capacityByte}" -gt "9" ]; then
+				local capacitySufx=" GB"
+				local capacityExp="9"
+			else
+				local capacitySufx=""
+				local capacityExp="1"
+			fi
+
+			local capacityPre="$(bc <<< "scale=2; ${capacityByte} / (1e${capacityExp})" | head -c 4 | sed -e 's:\.$::')"
+			local capacity="[${capacityPre}${capacitySufx}]"
+
 			# Get more useful times from hours
-			local testAge
+			local testAge=""
 			if [ ! -z "${lastTestHours}" ]; then
-				testAge="$(bc <<< "(${onHours} - ${lastTestHours}) / 24")"
+				# Check whether the selftest log times have overflowed after 65,535 hours of total power-on time
+				overflowTest="$((onHours - lastTestHours))"
+				if [ "${overflowTest}" -gt "65535" ]; then # Correct the overflow if necessary
+					testAge="$(bc <<< "(${onHours} - ${lastTestHours} - 65535) / 24")"
+				else # Normal Case, no overflow
+					testAge="$(bc <<< "(${onHours} - ${lastTestHours}) / 24")"
+				fi
 			fi
 
 			local yrs="$(bc <<< "${onHours} / 8760")"
@@ -1059,11 +1392,18 @@ function HDDSummary () {
 				local smartStatusColor="${okColor}"
 			fi
 
+			# Colorize Smart test Status
+			if [ "${lastTestStatus}" = "false" ]; then
+				local lastTestStatusColor="${critColor}"
+			else
+				local lastTestStatusColor="${bgColor}"
+			fi
+
 			# Colorize Temp
 			if [ "${temp:="0"}" -ge "${tempCrit}" ]; then
 				local tempColor="${critColor}"
 			elif [ "${temp}" -ge "${tempWarn}" ]; then
-				tempColor="${warnColor}"
+				local tempColor="${warnColor}"
 			else
 				local tempColor="${bgColor}"
 			fi
@@ -1130,34 +1470,363 @@ function HDDSummary () {
 
 			# Colorize test age
 			if [ "${testAge:-0}" -gt "${testAgeWarn}" ]; then
-				testAgeColor="${critColor}"
+				local testAgeColor="${critColor}"
 			else
-				testAgeColor="${bgColor}"
+				local testAgeColor="${bgColor}"
 			fi
 
 
 			{
 				# Row Output
-				echo '<tr style="background-color:'"${bgColor}"';">'
-				echo '<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"/dev/${device}"'</td>'
-				echo '<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${model}"'</td>'
-				echo '<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${serial}"'</td>'
-				echo '<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${rpm}"'</td>'
-				echo '<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${capacity}"'</td>'
-				echo '<td style="text-align:center; background-color:'"${smartStatusColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${smartStatus}"'</td>'
-				echo '<td style="text-align:center; background-color:'"${tempColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${temp}"'</td>'
-				echo '<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${onTime}"'</td>'
-				echo '<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${startStop}"'</td>'
-				echo '<td style="text-align:center; background-color:'"${spinRetryColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${spinRetry}"'</td>'
-				echo '<td style="text-align:center; background-color:'"${reAllocColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${reAlloc}"'</td>'
-				echo '<td style="text-align:center; background-color:'"${reAllocEventColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${reAllocEvent}"'</td>'
-				echo '<td style="text-align:center; background-color:'"${pendingColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${pending}"'</td>'
-				echo '<td style="text-align:center; background-color:'"${offlineUncColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${offlineUnc}"'</td>'
-				echo '<td style="text-align:center; background-color:'"${crcErrorsColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${crcErrors}"'</td>'
-				echo '<td style="text-align:center; background-color:'"${seekErrorHealthColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${seekErrorHealth}"'%</td>'
-				echo '<td style="text-align:center; background-color:'"${testAgeColor}"'; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${testAge:-"N/A"}"'</td>'
-				echo '<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">'"${lastTestType:-"N/A"}"'</td>'
-				echo '</tr>'
+				tee <<- EOF
+					<tr style="background-color:${bgColor};">
+					<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">/dev/${device}</td>
+					<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${model}</td>
+					<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${serial}</td>
+					<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${rpm}</td>
+					<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${capacity}</td>
+					<td style="text-align:center; background-color:${smartStatusColor}; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${smartStatus}</td>
+					<td style="text-align:center; background-color:${tempColor}; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${temp}</td>
+					<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${onTime}</td>
+					<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${startStop}</td>
+					<td style="text-align:center; background-color:${spinRetryColor}; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${spinRetry}</td>
+					<td style="text-align:center; background-color:${reAllocColor}; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${reAlloc}</td>
+					<td style="text-align:center; background-color:${reAllocEventColor}; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${reAllocEvent}</td>
+					<td style="text-align:center; background-color:${pendingColor}; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${pending}</td>
+					<td style="text-align:center; background-color:${offlineUncColor}; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${offlineUnc}</td>
+					<td style="text-align:center; background-color:${crcErrorsColor}; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${crcErrors}</td>
+					<td style="text-align:center; background-color:${seekErrorHealthColor}; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${seekErrorHealth}%</td>
+					<td style="text-align:center; background-color:${testAgeColor}; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${testAge:-"N/A"}</td>
+					<td style="text-align:center; background-color:${lastTestStatusColor}; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${lastTestType:-"N/A"}</td>
+					</tr>
+EOF
+			} >> "${logfile}"
+		fi
+	done
+
+	# End SMART summary table and summary section
+	{
+		echo '</table>'
+		echo '<br><br>'
+	} >> "${logfile}"
+}
+
+# shellcheck disable=SC2155
+function SASSummary () {
+	###### SAS SMART status summary table
+	{
+		# Write HTML table headers to log file
+		tee <<- EOF
+			<br><br>
+			<table style="border: 1px solid black; border-collapse: collapse;">
+			<tr><th colspan="18" style="text-align:center; font-size:20px; height:40px; font-family:courier;">SAS SMART Status Report Summary</th></tr>
+			<tr>
+			<th style="text-align:center; width:100px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Device</th>
+			<th style="text-align:center; width:130px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Model</th>
+			<th style="text-align:center; width:130px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Serial<br>Number</th>
+			<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">RPM</th>
+			<th style="text-align:center; width:100px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Capacity</th>
+			<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">SMART<br>Status</th>
+			<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Temp</th>
+			<th style="text-align:center; width:120px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Power-On<br>Time<br>(${powerTimeFormat})</th>
+			<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Start<br>Stop<br>Cycles</th>
+			<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Load<br>Unload<br>Cycles</th>
+			<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Grown<br>Defect<br>List</th>
+			<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Uncorrected<br>Read<br>Errors</th>
+			<th style="text-align:center; width:120px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Uncorrected<br>Write<br>Errors</th>
+			<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Uncorrected<br>Verify<br>Errors</th>
+			<th style="text-align:center; width:80px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Non-medium<br>Errors</th>
+			<th style="text-align:center; width:100px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Last Test<br>Age (days)</th>
+			<th style="text-align:center; width:100px; height:60px; border:1px solid black; border-collapse:collapse; font-family:courier;">Last Test<br>Type</th></tr>
+			</tr>
+EOF
+	} >> "${logfile}"
+
+	local drive
+	local altRow="false"
+	for drive in "${drives[@]}"; do
+		local sasInfoSmrt="$(smartctl -AHijl xselftest,selftest "/dev/${drive}")"
+		local nonJsonSasInfoSmrt="$(smartctl -Al error -l xselftest,selftest "/dev/${drive}")"
+		local rotTst="$(echo "${sasInfoSmrt}" | jq -Mre '.device.type | values')"
+		if [ "${rotTst}" = "scsi" ]; then
+			# For each drive detected, run "smartctl -AHijl xselftest,selftest" and parse its output.
+			# After parsing the output, compute other values (last test's age, on time in YY-MM-DD-HH).
+			# After these computations, determine the row's background color (alternating as above, subbing in other colors from the palate as needed).
+			# Finally, print the HTML code for the current row of the table with all the gathered data.
+
+			local device="${drive}"
+
+			# Available if any tests have completed #FixMe this info is not currently exported in json for sas drives
+			if [ ! -z "$(echo "${sasInfoSmrt}" | jq -Mre '.ata_smart_self_test_log.extended.table | values')" ]; then
+				local lastTestHours="$(echo "${sasInfoSmrt}" | jq -Mre '.ata_smart_self_test_log.extended.table[0].lifetime_hours | values')"
+				local lastTestType="$(echo "${sasInfoSmrt}" | jq -Mre '.ata_smart_self_test_log.extended.table[0].type.string | values')"
+				local lastTestStatus="$(echo "${sasInfoSmrt}" | jq -Mre '.ata_smart_self_test_log.extended.table[0].status.passed | values')"
+			else
+				local lastTestHours="$(echo "${sasInfoSmrt}" | jq -Mre '.ata_smart_self_test_log.standard.table[0].lifetime_hours | values')"
+				local lastTestType="$(echo "${sasInfoSmrt}" | jq -Mre '.ata_smart_self_test_log.standard.table[0].type.string | values')"
+				local lastTestStatus="$(echo "${sasInfoSmrt}" | jq -Mre '.ata_smart_self_test_log.standard.table[0].status.passed | values')"
+			fi
+
+			#FixMe: relies on non-json output
+			lastTestType="$(echo "${nonJsonSasInfoSmrt}" | grep '# 1' | tr -s " " | cut -d ' ' -sf '3,4')"
+			local runningNowTest="$(echo "${nonJsonSasInfoSmrt}" | grep '# 1' | tr -s " " | cut -d ' ' -sf '5,6,7,8,9')"
+			if [ "${runningNowTest}" = "Self test in progress ..." ]; then
+				lastTestHours="$(echo "${sasInfoSmrt}" | jq -Mre '.power_on_time.hours | values')"
+				lastTestStatus="$(echo "${nonJsonSasInfoSmrt}" | grep '# 1' | tr -s " " | cut -d ' ' -sf '12-15')"
+			else
+				lastTestHours="$(echo "${nonJsonSasInfoSmrt}" | grep '# 1' | tr -s " " | cut -d ' ' -sf '7')"
+				lastTestStatus="$(echo "${nonJsonSasInfoSmrt}" | grep '# 1' | tr -s " " | cut -d ' ' -sf '8-11')"
+			fi
+
+			# Mimic the true/false response expected from json in the future
+			if [ "${lastTestStatus}" = "- [- - -]" ]; then
+				lastTestStatus="true"
+			else
+				# Workaround for some drives that do not support self testing but still report a garbage self test log
+				# Set last test type to 'N/A' and last test hours to null "" in this case.  Do not colorize test status as a failure.
+				if [ "${lastTestType}" == "Default Self" ]; then
+					lastTestType="N/A"
+					lastTestHours=""
+					lastTestStatus="true"
+				else
+					lastTestStatus="false"
+				fi
+			fi
+
+			# Available for any drive smartd knows about
+			if [ "$(echo "${sasInfoSmrt}" | jq -Mre '.smart_status.passed | values')" = "true" ]; then
+				local smartStatus="PASSED"
+			else
+				local smartStatus="FAILED"
+			fi
+
+			local model="$(echo "${sasInfoSmrt}" | jq -Mre '.model_name | values')"
+			local serial="$(echo "${sasInfoSmrt}" | jq -Mre '.serial_number | values')"
+			local rpm="$(echo "${sasInfoSmrt}" | jq -Mre '.rotation_rate | values')"
+			# SAS drives may be SSDs or HDDs
+			if [ "${rpm:-0}" = "0" ]; then
+				rpm="SSD"
+			fi
+			local temp="$(echo "${sasInfoSmrt}" | jq -Mre '.temperature.current | values')"
+			local onHours="$(echo "${sasInfoSmrt}" | jq -Mre '.power_on_time.hours | values')"
+
+			# Available for most common drives
+			local scsiGrownDefectList="$(echo "${sasInfoSmrt}" | jq -Mre '.scsi_grown_defect_list | values')"
+			local uncorrectedReadErrors="$(echo "${sasInfoSmrt}" | jq -Mre '.read.total_uncorrected_errors | values')"
+			local uncorrectedWriteErrors="$(echo "${sasInfoSmrt}" | jq -Mre '.write.total_uncorrected_errors | values')"
+			local uncorrectedVerifyErrors="$(echo "${sasInfoSmrt}" | jq -Mre '.verify.total_uncorrected_errors | values')"
+
+			#FixMe: relies on non-json output
+			local nonMediumErrors="$(echo "${nonJsonSasInfoSmrt}" | grep "Non-medium" | tr -s " " | cut -d ' ' -sf '4')"
+			local accumStartStopCycles="$(echo "${nonJsonSasInfoSmrt}" | grep "Accumulated start-stop" | tr -s " " | cut -d ' ' -sf '4')"
+			local accumLoadUnloadCycles="$(echo "${nonJsonSasInfoSmrt}" | grep "Accumulated load-unload" | tr -s " " | cut -d ' ' -sf '4')"
+
+
+			## Make override adjustments
+			{
+			local serialMatch
+			# lastTestHours
+			serialMatch="_${serial}[lastTestHours]"
+			if [ ! -z "${!serialMatch}" ]; then
+				lastTestHours="$(bc <<< "${lastTestHours} ${!serialMatch}")"
+			fi
+
+			# onHours
+			serialMatch="_${serial}[onHours]"
+			if [ ! -z "${!serialMatch}" ]; then
+				onHours="$(bc <<< "${onHours} ${!serialMatch}")"
+			fi
+
+			# scsiGrownDefectList
+			serialMatch="_${serial}[scsiGrownDefectList]"
+			if [ ! -z "${!serialMatch}" ]; then
+				scsiGrownDefectList="$(bc <<< "${scsiGrownDefectList} ${!serialMatch}")"
+			fi
+
+			# uncorrectedReadErrors
+			serialMatch="_${serial}[uncorrectedReadErrors]"
+			if [ ! -z "${!serialMatch}" ]; then
+				uncorrectedReadErrors="$(bc <<< "${uncorrectedReadErrors} ${!serialMatch}")"
+			fi
+
+			# uncorrectedWriteErrors
+			serialMatch="_${serial}[uncorrectedWriteErrors]"
+			if [ ! -z "${!serialMatch}" ]; then
+				uncorrectedWriteErrors="$(bc <<< "${uncorrectedWriteErrors} ${!serialMatch}")"
+			fi
+
+			# uncorrectedVerifyErrors
+			serialMatch="_${serial}[uncorrectedVerifyErrors]"
+			if [ ! -z "${!serialMatch}" ]; then
+				uncorrectedVerifyErrors="$(bc <<< "${uncorrectedVerifyErrors} ${!serialMatch}")"
+			fi
+
+			# nonMediumErrors
+			serialMatch="_${serial}[nonMediumErrors]"
+			if [ ! -z "${!serialMatch}" ]; then
+				nonMediumErrors="$(bc <<< "${nonMediumErrors} ${!serialMatch}")"
+			fi
+			}
+
+
+			## Formatting
+			# Calculate capacity for user consumption
+			local capacityByte="$(echo "${sasInfoSmrt}" | jq -Mre '.user_capacity.bytes | values')"
+			: "${capacityByte:="0"}"
+
+			if [ "${#capacityByte}" -gt "12" ]; then
+				local capacitySufx=" TB"
+				local capacityExp="12"
+			elif [ "${#capacityByte}" -gt "9" ]; then
+				local capacitySufx=" GB"
+				local capacityExp="9"
+			else
+				local capacitySufx=""
+				local capacityExp="1"
+			fi
+
+			local capacityPre="$(bc <<< "scale=2; ${capacityByte} / (1e${capacityExp})" | head -c 4 | sed -e 's:\.$::')"
+			local capacity="[${capacityPre}${capacitySufx}]"
+
+			# Get more useful times from hours
+			local testAge=""
+			if [ ! -z "${lastTestHours}" ]; then
+				# Check whether the selftest log times have overflowed after 65,535 hours of total power-on time
+				overflowTest="$((onHours - lastTestHours))"
+				if [ "${overflowTest}" -gt "65535" ]; then # Correct the overflow if necessary
+					testAge="$(bc <<< "(${onHours} - ${lastTestHours} - 65535) / 24")"
+				else # Normal Case, no overflow
+					testAge="$(bc <<< "(${onHours} - ${lastTestHours}) / 24")"
+				fi
+			fi
+
+			local yrs="$(bc <<< "${onHours} / 8760")"
+			local mos="$(bc <<< "(${onHours} % 8760) / 730")"
+			local dys="$(bc <<< "((${onHours} % 8760) % 730) / 24")"
+			local hrs="$(bc <<< "((${onHours} % 8760) % 730) % 24")"
+
+			# Set Power-On Time format
+			if [ "${powerTimeFormat}" = "ymdh" ]; then
+				local onTime="${yrs}y ${mos}m ${dys}d ${hrs}h"
+			elif [ "${powerTimeFormat}" = "ymd" ]; then
+				local onTime="${yrs}y ${mos}m ${dys}d"
+			elif [ "${powerTimeFormat}" = "ym" ]; then
+				local onTime="${yrs}y ${mos}m"
+			elif [ "${powerTimeFormat}" = "y" ]; then
+				local onTime="${yrs}y"
+			else
+				local onTime="${yrs}y ${mos}m ${dys}d ${hrs}h"
+			fi
+
+			# Set the row background color
+			if [ "${altRow}" = "false" ]; then
+				local bgColor="#ffffff"
+				altRow="true"
+			else
+				local bgColor="${altColor}"
+				altRow="false"
+			fi
+
+			# Colorize Smart Status
+			if [ ! "${smartStatus}" = "PASSED" ]; then
+				local smartStatusColor="${critColor}"
+			else
+				local smartStatusColor="${okColor}"
+			fi
+
+			# Colorize Smart test Status
+			if [ "${lastTestStatus}" = "false" ]; then
+				local lastTestStatusColor="${critColor}"
+			else
+				local lastTestStatusColor="${bgColor}"
+			fi
+
+			# SAS is both SSD and HDD; colorize temp as appropriate
+			if [ "${rpm}" = "SSD" ]; then
+				# SAS SSD
+				if [ "${temp:="0"}" -ge "${ssdTempCrit}" ]; then
+					local tempColor="${critColor}"
+				elif [ "${temp}" -ge "${ssdTempWarn}" ]; then
+					local tempColor="${warnColor}"
+				else
+					local tempColor="${bgColor}"
+				fi
+			else
+				# SAS HDD
+				if [ "${temp:="0"}" -ge "${tempCrit}" ]; then
+					local tempColor="${critColor}"
+				elif [ "${temp}" -ge "${tempWarn}" ]; then
+					local tempColor="${warnColor}"
+				else
+					local tempColor="${bgColor}"
+				fi
+			fi
+			if [ "${temp}" = "0" ]; then
+				local temp="N/A"
+			else
+				local temp="${temp}&deg;C"
+			fi
+
+			# Colorize scsi Grown Defect List Errors
+			if [ "${scsiGrownDefectList:=0}" -gt "${sectorsCrit}" ]; then
+				local scsiGrownDefectListColor="${critColor}"
+			elif [ ! "${scsiGrownDefectList}" = "0" ]; then
+				local scsiGrownDefectListColor="${warnColor}"
+			else
+				local scsiGrownDefectListColor="${bgColor}"
+			fi
+
+			# Colorize Read Errors
+			if [ ! "${uncorrectedReadErrors:=0}" = "0" ]; then
+				local uncorrectedReadErrorsColor="${warnColor}"
+			else
+				local uncorrectedReadErrorsColor="${bgColor}"
+			fi
+
+			# Colorize Write Errors
+			if [ ! "${uncorrectedWriteErrors:=0}" = "0" ]; then
+				local uncorrectedWriteErrorsColor="${warnColor}"
+			else
+				local uncorrectedWriteErrorsColor="${bgColor}"
+			fi
+
+			# Colorize Verify Errors
+			if [ ! "${uncorrectedVerifyErrors:=0}" = "0" ]; then
+				local uncorrectedVerifyErrorsColor="${warnColor}"
+			else
+				local uncorrectedVerifyErrorsColor="${bgColor}"
+			fi
+
+			# Colorize test age
+			if [ "${testAge:-0}" -gt "${testAgeWarn}" ]; then
+				local testAgeColor="${critColor}"
+			else
+				local testAgeColor="${bgColor}"
+			fi
+
+			{
+				# Row Output
+				tee <<- EOF
+					<tr style="background-color:${bgColor};">
+					<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">/dev/${device}</td>
+					<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${model}</td>
+					<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${serial}</td>
+					<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${rpm}</td>
+					<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${capacity}</td>
+					<td style="text-align:center; background-color:${smartStatusColor}; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${smartStatus}</td>
+					<td style="text-align:center; background-color:${tempColor}; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${temp}</td>
+					<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${onTime}</td>
+					<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${accumStartStopCycles}</td>
+					<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${accumLoadUnloadCycles}</td>
+					<td style="text-align:center; background-color:${scsiGrownDefectListColor}; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${scsiGrownDefectList}</td>
+					<td style="text-align:center; background-color:${uncorrectedReadErrorsColor}; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${uncorrectedReadErrors}</td>
+					<td style="text-align:center; background-color:${uncorrectedWriteErrorsColor}; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${uncorrectedWriteErrors}</td>
+					<td style="text-align:center; background-color:${uncorrectedVerifyErrorsColor}; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${uncorrectedVerifyErrors}</td>
+					<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${nonMediumErrors}</td>
+					<td style="text-align:center; background-color:${testAgeColor}; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${testAge:-"N/A"}</td>
+					<td style="text-align:center; background-color:${lastTestStatusColor}; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${lastTestType:-"N/A"}</td>
+					</tr>
+EOF
 			} >> "${logfile}"
 		fi
 	done
@@ -1229,15 +1898,75 @@ function ReportUPS () {
     echo "<br><br>" >> "${logfile}"
 }
 
+function DumpFiles () {
+	local filename="dumpfiles"
+	local dumpPath="/tmp/${filename}/"
+	local tarfile="/tmp/${filename}.tgz"
+	local zfsVersion
+	local drive
+	local infoSmrtJson
+	local infoSmrt
+
+	zfsVersion="$(zpool version 2> /dev/null | head -n 1)"
+
+	# Make the dump path
+	mkdir -p "${dumpPath}"
+
+	# Grab the config file
+	cp "${configFile}" "${dumpPath}"
+
+	# Dump zpool status
+	zpool status > "${dumpPath}${zfsVersion}.txt"
+
+	# Dump drive data
+	{
+		for drive in "${drives[@]}"; do
+			infoSmrtJson="$(smartctl -AHijl xselftest,selftest --log="devstat" --quietmode=noserial "/dev/${drive}")"
+			infoSmrt="$(smartctl -AHil error -l xselftest,selftest --log="devstat" --quietmode=noserial "/dev/${drive}")"
+
+			echo "${infoSmrtJson}" > "${dumpPath}${drive}.json.txt"
+			echo "${infoSmrt}" > "${dumpPath}${drive}.txt"
+		done
+	}
+
+	(
+		cd "${dumpPath}.." || exit;
+		tar -czf "${tarfile}" "${filename}"
+	)
+
+	{
+		# Write MIME section header for file attachment (encoded with base64)
+		tee <<- EOF
+			--${boundary}
+			Content-Type: application/tar+gzip name="${filename}.tgz"
+			Content-Disposition: attachment; filename="${filename}.tgz"
+			Content-Transfer-Encoding: base64
+
+EOF
+		base64 "${tarfile}"
+		# Write MIME section header for html content to come below
+		tee <<- EOF
+			--${boundary}
+			Content-Transfer-Encoding: 8bit
+			Content-Type: text/html; charset="utf-8"
+
+EOF
+    } >> "${logfile}"
+
+}
+
 
 #
 # Main Script Starts Here
 #
 
-while getopts ":c:" OPTION; do
+while getopts ":c:d" OPTION; do
 	case "${OPTION}" in
 		c)
 			configFile="${OPTARG}"
+		;;
+		d)
+			fileDump="1"
 		;;
 		?)
 			# If an unknown flag is used (or -?):
@@ -1271,7 +2000,6 @@ date
 sysctl
 sed
 grep
-awk
 zpool
 cut
 tr
@@ -1281,13 +2009,15 @@ jq
 head
 tail
 sendmail
+sort
+tee
 )
 if [ "${systemType}" = "BSD" ]; then
 commands+=(
 glabel
 )
 fi
-if [ "${configBackup}" = "true" ]; then
+if [ "${configBackup}" = "true" ]  || [ "${fileDump}" = "1" ]; then
 commands+=(
 tar
 sqlite3
@@ -1349,12 +2079,13 @@ readarray -t "drives" <<< "$(for drive in ${localDriveList}; do
 	elif echo "${drive}" | grep -q "nvme"; then
 		printf "%s " "${drive}"
 	fi
-done | awk '{for (i=NF; i!=0 ; i--) print $i }')"
+done | tr ' ' '\n' | sort -V | sed '/^nvme/!H;//p;$!d;g;s:\n::')"
 
 # Toggles the 'ssdExist' flag to true if SSDs are detected in order to add the summary table
 if [ "${includeSSD}" = "true" ]; then
     for drive in "${drives[@]}"; do
-        if [ "$(smartctl -ij "/dev/${drive}" | jq -Mre '.rotation_rate | values')" = "0" ]; then
+        driveTypeExistSmartOutput="$(smartctl -ij "/dev/${drive}")"
+        if [ "$(echo "${driveTypeExistSmartOutput}" | jq -Mre '.rotation_rate | values')" = "0" ] && [ ! "$(echo "${driveTypeExistSmartOutput}" | jq -Mre '.device.type | values')" = "scsi" ]; then
             ssdExist="true"
             break
         else
@@ -1367,13 +2098,26 @@ if [ "${includeSSD}" = "true" ]; then
 fi
 # Test to see if there are any HDDs
 for drive in "${drives[@]}"; do
-	if [ ! "$(smartctl -ij "/dev/${drive}" | jq -Mre '.rotation_rate | values')" = "0" ]; then
+	driveTypeExistSmartOutput="$(smartctl -ij "/dev/${drive}")"
+	if [ ! "$(echo "${driveTypeExistSmartOutput}" | jq -Mre '.rotation_rate | values')" = "0" ] && [ ! "$(echo "${driveTypeExistSmartOutput}" | jq -Mre '.device.type | values')" = "scsi" ]; then
 		hddExist="true"
 		break
 	else
 		hddExist="false"
 	fi
 done
+# Test to see if there are any SAS drives
+if [ "${includeSAS}" = "true" ]; then
+	for drive in "${drives[@]}"; do
+		driveTypeExistSmartOutput="$(smartctl -ij "/dev/${drive}")"
+		if [ "$(echo "${driveTypeExistSmartOutput}" | jq -Mre '.device.type | values')" = "scsi" ]; then
+			sasExist="true"
+			break
+		else
+			sasExist="false"
+		fi
+	done
+fi
 
 # Get a list of pools
 readarray -t "pools" <<< "$(zpool list -H -o name)"
@@ -1383,31 +2127,38 @@ readarray -t "pools" <<< "$(zpool list -H -o name)"
 ###### Email pre-formatting
 ### Set email headers
 {
-    echo "From: ${fromName:="${host}"} <${fromEmail:="root@$(hostname)"}>"
-    echo "To: ${email}"
-    echo "Subject: ${subject}"
-    echo "MIME-Version: 1.0"
-    echo 'Content-Type: multipart/mixed; boundary="'"${boundary}"'"'
+tee <<- EOF
+	From: ${fromName:="${host}"} <${fromEmail:="root@$(hostname)"}>
+	To: ${email}
+	Subject: ${subject}
+	MIME-Version: 1.0
+	Content-Type: multipart/mixed; boundary="${boundary}"
+	Message-Id: <${messageid}@${host}>
+EOF
     if [ "${systemType}" = "BSD" ]; then
 		echo "Date: $(date -Rr "${runDate}")"
     else
     	echo "Date: $(date -d "@${runDate}" '+%a, %d %b %Y %T %Z')"
     fi
-    echo "Message-Id: <${messageid}@${host}>"
 } > "${logfile}"
 
 
 
 
 ###### Config backup (if enabled)
-if [ "${configBackup}" = "true" ]; then
+if [ "${fileDump}" = "1" ]; then
+	DumpFiles
+elif [ "${configBackup}" = "true" ]; then
 	ConfigBackup
 else
     # Config backup disabled; set up for html-type content
     {
-        echo "--${boundary}"
-        echo "Content-Transfer-Encoding: 8bit"
-        echo -e "Content-Type: text/html; charset=utf-8\n"
+	tee <<- EOF
+		--${boundary}
+		Content-Transfer-Encoding: 8bit
+		Content-Type: text/html; charset="utf-8"
+
+EOF
     } >> "${logfile}"
 fi
 
@@ -1422,6 +2173,11 @@ ZpoolSummary
 
 if [ "${NVMeExist}" = "true" ]; then
 	NVMeSummary
+fi
+
+
+if [ "${sasExist}" = "true" ]; then
+	SASSummary
 fi
 
 
@@ -1470,9 +2226,9 @@ done
 ### SMART status for each drive
 for drive in "${drives[@]}"; do
     smartOut="$(smartctl --json=u -i "/dev/${drive}")" # FixMe: smart support flag is not yet implemented in smartctl json output.
-    smartTestOut="$(smartctl -l selftest "/dev/${drive}")"
+    smartTestOut="$(smartctl -l xselftest,selftest "/dev/${drive}" | grep -v 'SMART Extended Self-test')"
 
-    if echo "${smartOut}" | grep -q "SMART support is: Enabled"; then # FixMe: smart support flag is not yet implemented in smartctl json output.
+    if echo "${smartOut}" | grep "SMART support is:" | grep -q "Enabled"; then # FixMe: smart support flag is not yet implemented in smartctl json output.
         # Gather brand and serial number of each drive
         brand="$(echo "${smartOut}" | jq -Mre '.model_family | values')"
         if [ -z "${brand}" ]; then
@@ -1502,12 +2258,13 @@ for drive in "${drives[@]}"; do
 			# Create a simple header and drop the output of some basic smartctl commands
             echo '<b>########## SMART status report for '"${drive}"' drive ('"${brand}: ${serial}"') ##########</b>'
             smartctl -H -A -l error "/dev/${drive}"
+            nvmecontrol logpage -p 0x06 ${drive} | grep '\['
             echo '<br><br>'
 		} >> "${logfile}"
     fi
 done
 
-# Remove some un-needed junk from the output
+# Remove some un-needed labels from the output
 if [ "${systemType}" = "BSD" ]; then
 	sed -i '' -e '/smartctl [6-9].[0-9]/d' "${logfile}"
 	sed -i '' -e '/Copyright/d' "${logfile}"
@@ -1534,7 +2291,7 @@ fi
 )  >> "${logfile}"
 
 ### Send report
-sendmail -t -oi < "${logfile}"
+sendmail -ti < "${logfile}"
 if [ "${saveLogfile}" = "false" ]; then
     rm "${logfile}"
 fi

@@ -3,7 +3,7 @@ Original Script By: joeschmuck<br>
 Modified By: bidelu0hm, melp, fohlsso2, onlinepcwizard, ninpucho, isentropik, rotx, dak180<br>
 Last Edited By: dak180
 
-**Current Version: v1.7**
+**Current Version: v1.7.5**
 
 Preview of the output here: https://i.imgur.com/jKwraw4.png
 When a resilver is in progress: https://i.imgur.com/CUNUZ7r.png
@@ -41,6 +41,16 @@ Once you have updated the config file, click `Run Now` again to generate your fi
 
 
 **Changelog**
+
+*v1.8*  (dak180)
+  - Accommodate both SSD and HDD temp settings
+  - Keep SAS drives in their own section
+  - Improved support for SAS and NVMe
+  - Remove all awk
+  - Add support for per drive overrides
+
+*v1.7.5* (dak180)
+ - Add initial support for SAS drives
 
 *v1.7* (dak180)
  - Refactor to reduce dependence on awk
