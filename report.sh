@@ -1916,7 +1916,7 @@ function DumpFiles () {
 	cp "${configFile}" "${dumpPath}"
 
 	# Dump zpool status
-	zpool status > "${dumpPath}${zfsVersion}.txt"
+	zpool status -Lv > "${dumpPath}${zfsVersion}.txt"
 
 	# Dump drive data
 	{
