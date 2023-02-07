@@ -315,12 +315,12 @@ function ZpoolSummary () {
 
 			# Convert time/datestamp format presented by zpool status, compare to current date, calculate scrub age
 			if [ "${multiDay}" -ge 1 ] ; then
-				scrubDate="$(echo "${statusOutput}" | grep "scan:" | awk '{print $17"-"$14"-"$15"_"$16}')"
+				scrubDate="$(echo "${statusOutput}" | grep "scan:" | awk '{print $17"-"$14"-"$15" "$16}')"
 			else
-				scrubDate="$(echo "${statusOutput}" | grep "scan:" | awk '{print $15"-"$12"-"$13"_"$14}')"
+				scrubDate="$(echo "${statusOutput}" | grep "scan:" | awk '{print $15"-"$12"-"$13" "$14}')"
 			fi
 			if [ "${systemType}" = "BSD" ]; then
-				scrubTS="$(date -j -f '%Y-%b-%e_%H:%M:%S' "${scrubDate}" '+%s')"
+				scrubTS="$(date -j -f '%Y-%b-%e %H:%M:%S' "${scrubDate}" '+%s')"
 			else
 				scrubTS="$(date -d "${scrubDate}" '+%s')"
 			fi
@@ -339,9 +339,9 @@ function ZpoolSummary () {
 			scrubErrors="$(echo "${statusOutput}" | grep "scan:" | awk '{print $7}')"
 
 			# Convert time/datestamp format presented by zpool status, compare to current date, calculate scrub age
-			scrubDate="$(echo "${statusOutput}" | grep "scan:" | awk '{print $14"-"$11"-"$12"_"$13}')"
+			scrubDate="$(echo "${statusOutput}" | grep "scan:" | awk '{print $14"-"$11"-"$12" "$13}')"
 			if [ "${systemType}" = "BSD" ]; then
-				scrubTS="$(date -j -f '%Y-%b-%e_%H:%M:%S' "${scrubDate}" '+%s')"
+				scrubTS="$(date -j -f '%Y-%b-%e %H:%M:%S' "${scrubDate}" '+%s')"
 			else
 				scrubTS="$(date -d "${scrubDate}" '+%s')"
 			fi
