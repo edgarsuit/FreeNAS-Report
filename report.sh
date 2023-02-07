@@ -2238,7 +2238,7 @@ sed -i '' -e '/SMART Error Log Version/d' "${logfile}"
 )  >> "${logfile}"
 
 ### Send report
-sendmail -t -oi < "${logfile}"
+sendmail -ti < "${logfile}"
 if [ "${saveLogfile}" = "false" ]; then
     rm "${logfile}"
 fi
