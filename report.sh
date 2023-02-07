@@ -2015,6 +2015,7 @@ tee
 if [ "${systemType}" = "BSD" ]; then
 commands+=(
 glabel
+nvmecontrol
 )
 fi
 if [ "${configBackup}" = "true" ]  || [ "${fileDump}" = "1" ]; then
@@ -2258,7 +2259,10 @@ for drive in "${drives[@]}"; do
 			# Create a simple header and drop the output of some basic smartctl commands
             echo '<b>########## SMART status report for '"${drive}"' drive ('"${brand}: ${serial}"') ##########</b>'
             smartctl -H -A -l error "/dev/${drive}"
-            nvmecontrol logpage -p 0x06 ${drive} | grep '\['
+            # FixMe: bsd only; still waiting on suport for nvme tests in smartctl
+            if [ "${systemType}" = "BSD" ]; then
+				nvmecontrol logpage -p 0x06 ${drive} | grep '\['
+            fi
             echo '<br><br>'
 		} >> "${logfile}"
     fi
