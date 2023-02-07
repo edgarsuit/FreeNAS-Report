@@ -2069,7 +2069,7 @@ messageid="$(dbus-uuidgen)"
 if [ "${systemType}" = "BSD" ]; then
 	localDriveList="$(sysctl -n kern.disks | sed -e 's:nvd:nvme:g')"
 else
-	localDriveList="$(ls -l "/sys/block" | grep -v 'devices/virtual' | cut -d ' ' -f "9")"
+	localDriveList="$(ls -l "/sys/block" | grep -v 'devices/virtual' | sed -e 's:[[:blank:]]\{1,\}: :g' | cut -d ' ' -f "9" | sed -e 's:n[0-9]\{1,\}$::g' | uniq )"
 	# lsblk -n -l -o NAME -E PKNAME | tr '\n' ' '
 fi
 
