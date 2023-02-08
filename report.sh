@@ -672,7 +672,7 @@ EOF
 				local capacityExp="1"
 			fi
 
-			local capacityPre="$(bc <<< "scale=2; ${capacityByte} / (1e${capacityExp})" | head -c 4 | sed -e 's:\.$::')"
+			local capacityPre="$(bc <<< "scale=2; ${capacityByte} / (10^${capacityExp})" | head -c 4 | sed -e 's:\.$::')"
 			local capacity="[${capacityPre}${capacitySufx}]"
 
 			# Get more useful times from hours
@@ -992,7 +992,7 @@ EOF
 				local capacityExp="1"
 			fi
 
-			local capacityPre="$(bc <<< "scale=2; ${capacityByte} / (1e${capacityExp})" | head -c 4 | sed -e 's:\.$::')"
+			local capacityPre="$(bc <<< "scale=2; ${capacityByte} / (10^${capacityExp})" | head -c 4 | sed -e 's:\.$::')"
 			local capacity="[${capacityPre}${capacitySufx}]"
 
 			# Get more useful times from hours
@@ -1343,7 +1343,7 @@ EOF
 				local capacityExp="1"
 			fi
 
-			local capacityPre="$(bc <<< "scale=2; ${capacityByte} / (1e${capacityExp})" | head -c 4 | sed -e 's:\.$::')"
+			local capacityPre="$(bc <<< "scale=2; ${capacityByte} / (10^${capacityExp})" | head -c 4 | sed -e 's:\.$::')"
 			local capacity="[${capacityPre}${capacitySufx}]"
 
 			# Get more useful times from hours
@@ -1685,7 +1685,7 @@ EOF
 				local capacityExp="1"
 			fi
 
-			local capacityPre="$(bc <<< "scale=2; ${capacityByte} / (1e${capacityExp})" | head -c 4 | sed -e 's:\.$::')"
+			local capacityPre="$(bc <<< "scale=2; ${capacityByte} / (10^${capacityExp})" | head -c 4 | sed -e 's:\.$::')"
 			local capacity="[${capacityPre}${capacitySufx}]"
 
 			# Get more useful times from hours
