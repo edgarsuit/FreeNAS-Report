@@ -92,43 +92,43 @@ defaultFile="1"
 email="email@address.com"
 
 ### Global table colors
-okColor="#c9ffcc"       # Hex code for color to use in SMART Status column if drives pass (default is light green, #c9ffcc)
-warnColor="#ffd6d6"     # Hex code for WARN color (default is light red, #ffd6d6)
-critColor="#ff0000"     # Hex code for CRITICAL color (default is bright red, #ff0000)
-altColor="#f4f4f4"      # Table background alternates row colors between white and this color (default is light gray, #f4f4f4)
+okColor="#c9ffcc"	# Hex code for color to use in SMART Status column if drives pass (default is light green, #c9ffcc)
+warnColor="#ffd6d6"	# Hex code for WARN color (default is light red, #ffd6d6)
+critColor="#ff0000"	# Hex code for CRITICAL color (default is bright red, #ff0000)
+altColor="#f4f4f4"	# Table background alternates row colors between white and this color (default is light gray, #f4f4f4)
 
 ### zpool status summary table settings
-usedWarn="90"             # Pool used percentage for CRITICAL color to be used
-scrubAgeWarn="30"         # Maximum age (in days) of last pool scrub before CRITICAL color will be used
+usedWarn="90"			# Pool used percentage for CRITICAL color to be used
+scrubAgeWarn="30"		# Maximum age (in days) of last pool scrub before CRITICAL color will be used
 
 ### SMART status summary table settings
-includeSSD="true"       # Change to "true" to include SSDs in SMART status summary table; "false" to disable
-includeSAS="false"       # Change to "true" to include SAS drives in SMART status summary table; "false" to disable
-lifeRemainWarn="75"       # Life remaining in the SSD at which WARNING color will be used
-lifeRemainCrit="50"       # Life remaining in the SSD at which CRITICAL color will be used
-totalBWWarn="100"         # Total bytes written (in TB) to the SSD at which WARNING color will be used
-totalBWCrit="200"         # Total bytes written (in TB) to the SSD at which CRITICAL color will be used
-tempWarn="35"             # Drive temp (in C) at which WARNING color will be used
-tempCrit="40"             # Drive temp (in C) at which CRITICAL color will be used
-ssdTempWarn="40"          # SSD drive temp (in C) at which WARNING color will be used
-ssdTempCrit="45"          # SSD drive temp (in C) at which CRITICAL color will be used
-sectorsCrit="10"          # Number of sectors per drive with errors before CRITICAL color will be used
-testAgeWarn="5"           # Maximum age (in days) of last SMART test before CRITICAL color will be used
+includeSSD="true"		# Change to "true" to include SSDs in SMART status summary table; "false" to disable
+includeSAS="false"		# Change to "true" to include SAS drives in SMART status summary table; "false" to disable
+lifeRemainWarn="75"		# Life remaining in the SSD at which WARNING color will be used
+lifeRemainCrit="50"		# Life remaining in the SSD at which CRITICAL color will be used
+totalBWWarn="100"		# Total bytes written (in TB) to the SSD at which WARNING color will be used
+totalBWCrit="200"		# Total bytes written (in TB) to the SSD at which CRITICAL color will be used
+tempWarn="35"			# Drive temp (in C) at which WARNING color will be used
+tempCrit="40"			# Drive temp (in C) at which CRITICAL color will be used
+ssdTempWarn="40"		# SSD drive temp (in C) at which WARNING color will be used
+ssdTempCrit="45"		# SSD drive temp (in C) at which CRITICAL color will be used
+sectorsCrit="10"		# Number of sectors per drive with errors before CRITICAL color will be used
+testAgeWarn="5"			# Maximum age (in days) of last SMART test before CRITICAL color will be used
 powerTimeFormat="ymdh"  # Format for power-on hours string, valid options are "ymdh", "ymd", "ym", or "y" (year month day hour)
 
 ### TrueNAS config backup settings
-configBackup="false"     # Change to "false" to skip config backup (which renders next two options meaningless); "true" to keep config backups enabled
-emailBackup="false"     # Change to "true" to email TrueNAS config backup
-saveBackup="true"       # Change to "false" to delete TrueNAS config backup after mail is sent; "true" to keep it in dir below
-backupLocation="/root/backup"    # Directory in which to save TrueNAS config backups
+configBackup="false"			# Change to "false" to skip config backup (which renders next two options meaningless); "true" to keep config backups enabled
+emailBackup="false"				# Change to "true" to email TrueNAS config backup
+saveBackup="true"				# Change to "false" to delete TrueNAS config backup after mail is sent; "true" to keep it in dir below
+backupLocation="/root/backup"	# Directory in which to save TrueNAS config backups
 
 ### UPS status summary settings
-reportUPS="false"        # Change to "false" to skip reporting the status of the UPS
+reportUPS="false"			# Change to "false" to skip reporting the status of the UPS
 
 ### General script settings
-logfileLocation="/tmp"      # Directory in which to save TrueNAS log file. Can be set to /tmp.
-logfileName="logfilename"                  # Log file name
-saveLogfile="true"                         # Change to "false" to delete the log file after creation
+logfileLocation="/tmp"		# Directory in which to save TrueNAS log file. Can be set to /tmp.
+logfileName="logfilename"	# Log file name
+saveLogfile="true"			# Change to "false" to delete the log file after creation
 
 ##### Drive Overrides
 # In the form: declare -A _<serial>
@@ -142,27 +142,27 @@ EOF
 }
 
 function ConfigBackup () {
-    local tarfile
-    local fnconfigdest_version
-    local fnconfigdest_date
-    local filename
+	local tarfile
+	local fnconfigdest_version
+	local fnconfigdest_date
+	local filename
 
 
-    # Set up file names, etc for later
-    tarfile="/tmp/config_backup.tar.gz"
-    fnconfigdest_version="$(< /etc/version sed -e 's:)::' -e 's:(::' -e 's: :-:' | tr -d '\n')"
+	# Set up file names, etc for later
+	tarfile="/tmp/config_backup.tar.gz"
+	fnconfigdest_version="$(< /etc/version sed -e 's:)::' -e 's:(::' -e 's: :-:' | tr -d '\n')"
 	if [ "${systemType}" = "BSD" ]; then
 		fnconfigdest_date="$(date -r "${runDate}" '+%Y%m%d%H%M%S')"
 	else
 		fnconfigdest_date="$(date -d "@${runDate}" '+%Y%m%d%H%M%S')"
-    fi
-    filename="${fnconfigdest_date}_${fnconfigdest_version}"
+	fi
+	filename="${fnconfigdest_date}_${fnconfigdest_version}"
 
-    ### Test config integrity
-    if [ ! "$(sqlite3 "/data/freenas-v1.db" "pragma integrity_check;")" = "ok" ]; then
+	### Test config integrity
+	if [ ! "$(sqlite3 "/data/freenas-v1.db" "pragma integrity_check;")" = "ok" ]; then
 
-        # Config integrity check failed, set MIME content type to html and print warning
-        {
+		# Config integrity check failed, set MIME content type to html and print warning
+		{
 			tee <<- EOF
 				--${boundary}
 				Content-Transfer-Encoding: 8bit
@@ -172,18 +172,18 @@ function ConfigBackup () {
 				<b>You should correct this problem as soon as possible!</b>
 				<br>
 EOF
-        } >> "${logfile}"
-    else
-        # Config integrity check passed; copy config db, generate checksums, make .tar.gz archive
-        sqlite3 "/data/freenas-v1.db" ".backup main /tmp/${filename}.db"
-        cp -f "/data/pwenc_secret" "/tmp/"
-        md5sum "/tmp/${filename}.db" > /tmp/config_backup.md5
-        sha256sum "/tmp/${filename}.db" > /tmp/config_backup.sha256
-        (
-            cd "/tmp/" || exit;
-            tar -czf "${tarfile}" "./${filename}.db" "./config_backup.md5" "./config_backup.sha256" "./pwenc_secret"
-        )
-        {
+		} >> "${logfile}"
+	else
+		# Config integrity check passed; copy config db, generate checksums, make .tar.gz archive
+		sqlite3 "/data/freenas-v1.db" ".backup main /tmp/${filename}.db"
+		cp -f "/data/pwenc_secret" "/tmp/"
+		md5sum "/tmp/${filename}.db" > /tmp/config_backup.md5
+		sha256sum "/tmp/${filename}.db" > /tmp/config_backup.sha256
+		(
+			cd "/tmp/" || exit;
+			tar -czf "${tarfile}" "./${filename}.db" "./config_backup.md5" "./config_backup.sha256" "./pwenc_secret"
+		)
+		{
 			if [ "${emailBackup}" = "true" ]; then
 				# Write MIME section header for file attachment (encoded with base64)
 				tee <<- EOF
@@ -196,24 +196,24 @@ EOF
 				base64 "${tarfile}"
 			fi
 
-            # Write MIME section header for html content to come below
+			# Write MIME section header for html content to come below
 			tee <<- EOF
 				--${boundary}
 				Content-Transfer-Encoding: 8bit
 				Content-Type: text/html; charset="utf-8"
 
 EOF
-        } >> "${logfile}"
+		} >> "${logfile}"
 
-        # If logfile saving is enabled, copy .tar.gz file to specified location before it (and everything else) is removed below
-        if [ "${saveBackup}" = "true" ]; then
-            cp "${tarfile}" "${backupLocation}/${filename}.tar.gz"
-        fi
-        rm "/tmp/${filename}.db"
-        rm "/tmp/config_backup.md5"
-        rm "/tmp/config_backup.sha256"
-        rm "${tarfile}"
-    fi
+		# If logfile saving is enabled, copy .tar.gz file to specified location before it (and everything else) is removed below
+		if [ "${saveBackup}" = "true" ]; then
+			cp "${tarfile}" "${backupLocation}/${filename}.tar.gz"
+		fi
+		rm "/tmp/${filename}.db"
+		rm "/tmp/config_backup.md5"
+		rm "/tmp/config_backup.sha256"
+		rm "${tarfile}"
+	fi
 }
 
 function ZpoolSummary () {
@@ -372,12 +372,12 @@ EOF
 			scrubDate="${scrubMonth} ${scrubDay} ${scrubYear} ${scrubTime}"
 
 
-            if [ "${systemType}" = "BSD" ]; then
-                scrubTS="$(date -j -f '%b %e %Y %H:%M:%S' "${scrubDate}" '+%s')"
-            else
-                scrubTS="$(date -d "${scrubDate}" '+%s')"
-            fi
-            currentTS="${runDate}"
+			if [ "${systemType}" = "BSD" ]; then
+				scrubTS="$(date -j -f '%b %e %Y %H:%M:%S' "${scrubDate}" '+%s')"
+			else
+				scrubTS="$(date -d "${scrubDate}" '+%s')"
+			fi
+			currentTS="${runDate}"
 			scrubAge="$((((currentTS - scrubTS) + 43200) / 86400))"
 			}
 
@@ -411,11 +411,11 @@ EOF
 			scrubDate="${scrubMonth} ${scrubDay} ${scrubYear} ${scrubTime}"
 
 
-            if [ "${systemType}" = "BSD" ]; then
-                scrubTS="$(date -j -f '%b %e %Y %H:%M:%S' "${scrubDate}" '+%s')"
-            else
-                scrubTS="$(date -d "${scrubDate}" '+%s')"
-            fi
+			if [ "${systemType}" = "BSD" ]; then
+				scrubTS="$(date -j -f '%b %e %Y %H:%M:%S' "${scrubDate}" '+%s')"
+			else
+				scrubTS="$(date -d "${scrubDate}" '+%s')"
+			fi
 			currentTS="${runDate}"
 			scrubAge="$((((currentTS - scrubTS) + 43200) / 86400))"
 			}
@@ -859,11 +859,11 @@ EOF
 
 	local drive
 	local altRow="false"
-    for drive in "${drives[@]}"; do
+	for drive in "${drives[@]}"; do
 		local ssdInfoSmrt="$(smartctl -AHijl xselftest,selftest --log="devstat" "/dev/${drive}")"
-    	local rotTst="$(echo "${ssdInfoSmrt}" | jq -Mre '.rotation_rate | values')"
-    	local scsiTst="$(echo "${ssdInfoSmrt}" | jq -Mre '.device.type | values')"
-        if [ "${rotTst}" = "0" ] && [ ! "${scsiTst}" = "scsi" ]; then
+		local rotTst="$(echo "${ssdInfoSmrt}" | jq -Mre '.rotation_rate | values')"
+		local scsiTst="$(echo "${ssdInfoSmrt}" | jq -Mre '.device.type | values')"
+		if [ "${rotTst}" = "0" ] && [ ! "${scsiTst}" = "scsi" ]; then
 			# For each drive detected, run "smartctl -AHijl xselftest,selftest" and parse its output.
 			# Start by parsing out the variables used in other parts of the script.
 			# After parsing the output, compute other values (last test's age, on time in YY-MM-DD-HH).
@@ -1150,7 +1150,7 @@ EOF
 			fi
 
 
-            {
+			{
 				# Row Output
 				tee <<- EOF
 					<tr style="background-color:${bgColor};">
@@ -1174,14 +1174,14 @@ EOF
 					<td style="text-align:center; background-color:${lastTestStatusColor}; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${lastTestType:-"N/A"}</td>
 					</tr>
 EOF
-            } >> "${logfile}"
-        fi
-    done
+			} >> "${logfile}"
+		fi
+	done
 
-    # End SSD SMART summary table
-    {
-        echo '</table>'
-    } >> "${logfile}"
+	# End SSD SMART summary table
+	{
+		echo '</table>'
+	} >> "${logfile}"
 }
 
 # shellcheck disable=SC2155
@@ -1840,16 +1840,16 @@ EOF
 
 # shellcheck disable=SC2155
 function ReportUPS () {
-    # Set to a value greater than zero to include all available UPSC
-    # variables in the report:
+	# Set to a value greater than zero to include all available UPSC
+	# variables in the report:
 	local senddetail="0"
 	local ups
-    local upslist
+	local upslist
 
-    # Get a list of all ups devices installed on the system:
-    readarray -t "upslist" <<< "$(upsc -l "${host}")"
+	# Get a list of all ups devices installed on the system:
+	readarray -t "upslist" <<< "$(upsc -l "${host}")"
 
-    {
+	{
 		echo '<b>########## UPS status report ##########</b>'
 			for ups in "${upslist[@]}"; do
 
@@ -1893,9 +1893,9 @@ function ReportUPS () {
 					echo ""
 				fi
 			done
-    } >> "${logfile}"
+	} >> "${logfile}"
 
-    echo "<br><br>" >> "${logfile}"
+	echo "<br><br>" >> "${logfile}"
 }
 
 function DumpFiles () {
@@ -1951,7 +1951,7 @@ EOF
 			Content-Type: text/html; charset="utf-8"
 
 EOF
-    } >> "${logfile}"
+	} >> "${logfile}"
 
 }
 
@@ -2084,18 +2084,18 @@ done | tr ' ' '\n' | sort -V | sed '/^nvme/!H;//p;$!d;g;s:\n::')"
 
 # Toggles the 'ssdExist' flag to true if SSDs are detected in order to add the summary table
 if [ "${includeSSD}" = "true" ]; then
-    for drive in "${drives[@]}"; do
-        driveTypeExistSmartOutput="$(smartctl -ij "/dev/${drive}")"
-        if [ "$(echo "${driveTypeExistSmartOutput}" | jq -Mre '.rotation_rate | values')" = "0" ] && [ ! "$(echo "${driveTypeExistSmartOutput}" | jq -Mre '.device.type | values')" = "scsi" ]; then
-            ssdExist="true"
-            break
-        else
-            ssdExist="false"
-        fi
-    done
-    if echo "${drives[*]}" | grep -q "nvme"; then
-    	NVMeExist="true"
-    fi
+	for drive in "${drives[@]}"; do
+		driveTypeExistSmartOutput="$(smartctl -ij "/dev/${drive}")"
+		if [ "$(echo "${driveTypeExistSmartOutput}" | jq -Mre '.rotation_rate | values')" = "0" ] && [ ! "$(echo "${driveTypeExistSmartOutput}" | jq -Mre '.device.type | values')" = "scsi" ]; then
+			ssdExist="true"
+			break
+		else
+			ssdExist="false"
+		fi
+	done
+	if echo "${drives[*]}" | grep -q "nvme"; then
+		NVMeExist="true"
+	fi
 fi
 # Test to see if there are any HDDs
 for drive in "${drives[@]}"; do
@@ -2136,11 +2136,11 @@ tee <<- EOF
 	Content-Type: multipart/mixed; boundary="${boundary}"
 	Message-Id: <${messageid}@${host}>
 EOF
-    if [ "${systemType}" = "BSD" ]; then
+	if [ "${systemType}" = "BSD" ]; then
 		echo "Date: $(date -Rr "${runDate}")"
-    else
-    	echo "Date: $(date -d "@${runDate}" '+%a, %d %b %Y %T %Z')"
-    fi
+	else
+		echo "Date: $(date -d "@${runDate}" '+%a, %d %b %Y %T %Z')"
+	fi
 } > "${logfile}"
 
 
@@ -2152,15 +2152,15 @@ if [ "${fileDump}" = "1" ]; then
 elif [ "${configBackup}" = "true" ]; then
 	ConfigBackup
 else
-    # Config backup disabled; set up for html-type content
-    {
+	# Config backup disabled; set up for html-type content
+	{
 	tee <<- EOF
 		--${boundary}
 		Content-Transfer-Encoding: 8bit
 		Content-Type: text/html; charset="utf-8"
 
 EOF
-    } >> "${logfile}"
+	} >> "${logfile}"
 fi
 
 
@@ -2215,57 +2215,57 @@ fi
 
 ### Zpool status for each pool
 for pool in "${pools[@]}"; do
-    {
-        # Create a simple header and drop the output of zpool status -v
-        echo '<b>########## ZPool status report for '"${pool}"' ##########</b>'
-        zpool status -Lv "${pool}"
-        echo '<br><br>'
-    } >> "${logfile}"
+	{
+		# Create a simple header and drop the output of zpool status -v
+		echo '<b>########## ZPool status report for '"${pool}"' ##########</b>'
+		zpool status -Lv "${pool}"
+		echo '<br><br>'
+	} >> "${logfile}"
 done
 
 
 ### SMART status for each drive
 for drive in "${drives[@]}"; do
-    smartOut="$(smartctl --json=u -i "/dev/${drive}")" # FixMe: smart support flag is not yet implemented in smartctl json output.
-    smartTestOut="$(smartctl -l xselftest,selftest "/dev/${drive}" | grep -v 'SMART Extended Self-test')"
+	smartOut="$(smartctl --json=u -i "/dev/${drive}")" # FixMe: smart support flag is not yet implemented in smartctl json output.
+	smartTestOut="$(smartctl -l xselftest,selftest "/dev/${drive}" | grep -v 'SMART Extended Self-test')"
 
-    if echo "${smartOut}" | grep "SMART support is:" | grep -q "Enabled"; then # FixMe: smart support flag is not yet implemented in smartctl json output.
-        # Gather brand and serial number of each drive
-        brand="$(echo "${smartOut}" | jq -Mre '.model_family | values')"
-        if [ -z "${brand}" ]; then
-            brand="$(echo "${smartOut}" | jq -Mre '.model_name | values')";
-        fi
-        serial="$(echo "${smartOut}" | jq -Mre '.serial_number | values')"
-        {
-            # Create a simple header and drop the output of some basic smartctl commands
-            echo '<b>########## SMART status report for '"${drive}"' drive ('"${brand}: ${serial}"') ##########</b>'
-            smartctl -H -A -l error "/dev/${drive}"
-            echo "${smartTestOut}" | grep 'Num' | cut -c6- | head -1
-            echo "${smartTestOut}" | grep 'Extended' | cut -c6- | head -1
-            echo "${smartTestOut}" | grep 'Short' | cut -c6- | head -1
-            echo "${smartTestOut}" | grep 'Conveyance' | cut -c6- | head -1
-            echo '<br><br>'
-        } >> "${logfile}"
-
-    elif echo "${drive}" | grep -q "nvme"; then
-    	# NVMe drives are handled separately because self tests are not yet supported.
-        # Gather brand and serial number of each drive
+	if echo "${smartOut}" | grep "SMART support is:" | grep -q "Enabled"; then # FixMe: smart support flag is not yet implemented in smartctl json output.
+		# Gather brand and serial number of each drive
 		brand="$(echo "${smartOut}" | jq -Mre '.model_family | values')"
-        if [ -z "${brand}" ]; then
-            brand="$(echo "${smartOut}" | jq -Mre '.model_name | values')";
-        fi
+		if [ -z "${brand}" ]; then
+			brand="$(echo "${smartOut}" | jq -Mre '.model_name | values')";
+		fi
 		serial="$(echo "${smartOut}" | jq -Mre '.serial_number | values')"
 		{
 			# Create a simple header and drop the output of some basic smartctl commands
-            echo '<b>########## SMART status report for '"${drive}"' drive ('"${brand}: ${serial}"') ##########</b>'
-            smartctl -H -A -l error "/dev/${drive}"
-            # FixMe: bsd only; still waiting on suport for nvme tests in smartctl
-            if [ "${systemType}" = "BSD" ]; then
-				nvmecontrol logpage -p 0x06 ${drive} | grep '\['
-            fi
-            echo '<br><br>'
+			echo '<b>########## SMART status report for '"${drive}"' drive ('"${brand}: ${serial}"') ##########</b>'
+			smartctl -H -A -l error "/dev/${drive}"
+			echo "${smartTestOut}" | grep 'Num' | cut -c6- | head -1
+			echo "${smartTestOut}" | grep 'Extended' | cut -c6- | head -1
+			echo "${smartTestOut}" | grep 'Short' | cut -c6- | head -1
+			echo "${smartTestOut}" | grep 'Conveyance' | cut -c6- | head -1
+			echo '<br><br>'
 		} >> "${logfile}"
-    fi
+
+	elif echo "${drive}" | grep -q "nvme"; then
+		# NVMe drives are handled separately because self tests are not yet supported.
+		# Gather brand and serial number of each drive
+		brand="$(echo "${smartOut}" | jq -Mre '.model_family | values')"
+		if [ -z "${brand}" ]; then
+			brand="$(echo "${smartOut}" | jq -Mre '.model_name | values')";
+		fi
+		serial="$(echo "${smartOut}" | jq -Mre '.serial_number | values')"
+		{
+			# Create a simple header and drop the output of some basic smartctl commands
+			echo '<b>########## SMART status report for '"${drive}"' drive ('"${brand}: ${serial}"') ##########</b>'
+			smartctl -H -A -l error "/dev/${drive}"
+			# FixMe: bsd only; still waiting on suport for nvme tests in smartctl
+			if [ "${systemType}" = "BSD" ]; then
+				nvmecontrol logpage -p 0x06 ${drive} | grep '\['
+			fi
+			echo '<br><br>'
+		} >> "${logfile}"
+	fi
 done
 
 # Remove some un-needed labels from the output
@@ -2290,12 +2290,12 @@ fi
 
 ### End details section, close MIME section
 (
-    echo '</pre>'
-    echo "--${boundary}--"
+	echo '</pre>'
+	echo "--${boundary}--"
 )  >> "${logfile}"
 
 ### Send report
 sendmail -ti < "${logfile}"
 if [ "${saveLogfile}" = "false" ]; then
-    rm "${logfile}"
+	rm "${logfile}"
 fi
