@@ -177,8 +177,8 @@ EOF
         # Config integrity check passed; copy config db, generate checksums, make .tar.gz archive
         sqlite3 "/data/freenas-v1.db" ".backup main /tmp/${filename}.db"
         cp -f "/data/pwenc_secret" "/tmp/"
-        md5sum -q "/tmp/${filename}.db" > /tmp/config_backup.md5
-        sha256sum -q "/tmp/${filename}.db" > /tmp/config_backup.sha256
+        md5sum "/tmp/${filename}.db" > /tmp/config_backup.md5
+        sha256sum "/tmp/${filename}.db" > /tmp/config_backup.sha256
         (
             cd "/tmp/" || exit;
             tar -czf "${tarfile}" "./${filename}.db" "./config_backup.md5" "./config_backup.sha256" "./pwenc_secret"
