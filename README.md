@@ -23,7 +23,7 @@ Create a Cron Job with the following configuration:
 
 ```
 Description: Run Smart Report
-Command: /path/to/script/smartreport.sh -c /path/to/script/smartreport.conf
+Command: /path/to/script/report.sh -c /path/to/script/report.cfg
 Run as: root
 Schedule: Daily
 Hide Standard Output: **Checked**
