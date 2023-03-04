@@ -700,9 +700,9 @@ EOF
 			fi
 
 			# Colorize temp
-			if [ "${temp}" -ge "${ssdTempCrit}" ]; then
+			if [ "${temp:=0}" -ge "${ssdTempCrit}" ]; then
 				local tempColor="${critColor}"
-			elif [ "${temp}" -ge "${ssdTempWarn}" ]; then
+			elif [ "${temp:=0}" -ge "${ssdTempWarn}" ]; then
 				local tempColor="${warnColor}"
 			else
 				local tempColor="${bgColor}"
