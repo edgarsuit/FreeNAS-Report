@@ -739,7 +739,10 @@ EOF
 			fi
 
 			# Colorize Wear Leveling
-			if [ "${wearLeveling}" -le "${lifeRemainCrit}" ]; then
+			if [ -z "${wearLeveling}" ]; then
+				wearLeveling="N/A"
+				local wearLevelingColor="${bgColor}"
+			elif [ "${wearLeveling}" -le "${lifeRemainCrit}" ]; then
 				local wearLevelingColor="${critColor}"
 			elif [ "${wearLeveling}" -le "${lifeRemainWarn}" ]; then
 				local wearLevelingColor="${warnColor}"
@@ -774,7 +777,7 @@ EOF
 			fi
 
 			# Colorize test age
-			if [ "${testAge}" -gt "${testAgeWarn}" ]; then
+			if [ "${testAge:=0}" -gt "${testAgeWarn}" ]; then
 				local testAgeColor="${critColor}"
 			else
 				local testAgeColor="${bgColor}"
@@ -1039,7 +1042,7 @@ EOF
 			# Colorize Temp
 			if [ "${temp:="0"}" -ge "${ssdTempCrit}" ]; then
 				local tempColor="${critColor}"
-			elif [ "${temp}" -ge "${ssdTempWarn}" ]; then
+			elif [ "${temp:=0}" -ge "${ssdTempWarn}" ]; then
 				local tempColor="${warnColor}"
 			else
 				local tempColor="${bgColor}"
@@ -1390,7 +1393,7 @@ EOF
 			# Colorize Temp
 			if [ "${temp:="0"}" -ge "${tempCrit}" ]; then
 				local tempColor="${critColor}"
-			elif [ "${temp}" -ge "${tempWarn}" ]; then
+			elif [ "${temp:=0}" -ge "${tempWarn}" ]; then
 				local tempColor="${warnColor}"
 			else
 				local tempColor="${bgColor}"
@@ -1734,7 +1737,7 @@ EOF
 				# SAS SSD
 				if [ "${temp:="0"}" -ge "${ssdTempCrit}" ]; then
 					local tempColor="${critColor}"
-				elif [ "${temp}" -ge "${ssdTempWarn}" ]; then
+				elif [ "${temp:=0}" -ge "${ssdTempWarn}" ]; then
 					local tempColor="${warnColor}"
 				else
 					local tempColor="${bgColor}"
@@ -1743,7 +1746,7 @@ EOF
 				# SAS HDD
 				if [ "${temp:="0"}" -ge "${tempCrit}" ]; then
 					local tempColor="${critColor}"
-				elif [ "${temp}" -ge "${tempWarn}" ]; then
+				elif [ "${temp:=0}" -ge "${tempWarn}" ]; then
 					local tempColor="${warnColor}"
 				else
 					local tempColor="${bgColor}"
