@@ -3,7 +3,7 @@ Original Script By: joeschmuck<br>
 Modified By: bidelu0hm, melp, fohlsso2, onlinepcwizard, ninpucho, isentropik, rotx, dak180<br>
 Last Edited By: dak180
 
-**Current Version: v1.7.5**
+**Current Version: v1.8**
 
 Preview of the output here: https://i.imgur.com/jKwraw4.png
 When a resilver is in progress: https://i.imgur.com/CUNUZ7r.png
