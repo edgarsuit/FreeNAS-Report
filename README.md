@@ -33,9 +33,9 @@ Enabled: **Checked**
 
 Click `Submit` and then `Run Now`.
 
-A configuration file will be generated at `/path/to/script/smartreport.conf`
+A configuration file will be generated at `/path/to/script/report.cfg`
 
-**At a minimum, enter an email address for the report to be sent to and set `defaultFile` to 0 in the generated config file. Feel free to edit other user parameters as needed. Backup has been disabled by default so if it is required please set to true.**
+**At a minimum, enter an email address for the report to be sent to and set `defaultFile` to `0` in the generated config file. Feel free to edit other user parameters as needed. Backup has been disabled by default so if it is required please set to true.**
 
 Once you have updated the config file, click `Run Now` again to generate your first report.
 
