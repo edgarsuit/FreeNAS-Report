@@ -1558,30 +1558,35 @@ EOF
 				local lastTestStatus="$(echo "${sasInfoSmrt}" | jq -Mre '.ata_smart_self_test_log.standard.table[0].status.passed | values')"
 			fi
 
-			#FixMe: relies on non-json output
-			lastTestType="$(echo "${nonJsonSasInfoSmrt}" | grep '# 1' | tr -s " " | cut -d ' ' -sf '3,4')"
-			local runningNowTest="$(echo "${nonJsonSasInfoSmrt}" | grep '# 1' | tr -s " " | cut -d ' ' -sf '5,6,7,8,9')"
-			if [ "${runningNowTest}" = "Self test in progress ..." ]; then
-				lastTestHours="$(echo "${sasInfoSmrt}" | jq -Mre '.power_on_time.hours | values')"
-				lastTestStatus="$(echo "${nonJsonSasInfoSmrt}" | grep '# 1' | tr -s " " | cut -d ' ' -sf '12-15')"
-			else
-				lastTestHours="$(echo "${nonJsonSasInfoSmrt}" | grep '# 1' | tr -s " " | cut -d ' ' -sf '7')"
-				lastTestStatus="$(echo "${nonJsonSasInfoSmrt}" | grep '# 1' | tr -s " " | cut -d ' ' -sf '8-11')"
+			# Try the non json output if we do not have a value
+			if [ -z "${lastTestType}" ]; then
+				local runningNowTest="$(echo "${nonJsonSasInfoSmrt}" | grep '# 1' | tr -s " " | cut -d ' ' -sf '5,6,7,8,9')"
+				lastTestType="$(echo "${nonJsonSasInfoSmrt}" | grep '# 1' | tr -s " " | cut -d ' ' -sf '3,4')"
+				# If test results are not reported warn
+				if [ -z "${lastTestType}" ]; then
+					lastTestType="N/A: testing not supported"
+					lastTestStatus="false"
+					lastTestHours=""
+				# Try to pull the values out if they exist
+				elif [ "${runningNowTest}" = "Self test in progress ..." ]; then
+					lastTestHours="$(echo "${sasInfoSmrt}" | jq -Mre '.power_on_time.hours | values')"
+					lastTestStatus="$(echo "${nonJsonSasInfoSmrt}" | grep '# 1' | tr -s " " | cut -d ' ' -sf '12-15')"
+				else
+					lastTestHours="$(echo "${nonJsonSasInfoSmrt}" | grep '# 1' | tr -s " " | cut -d ' ' -sf '7')"
+					lastTestStatus="$(echo "${nonJsonSasInfoSmrt}" | grep '# 1' | tr -s " " | cut -d ' ' -sf '8-11')"
+				fi
+				# Mimic the true/false response expected from json in the future
+				if [ "${lastTestStatus}" = "- [- - -]" ]; then
+					lastTestStatus="true"
+				fi
 			fi
 
-			# Mimic the true/false response expected from json in the future
-			if [ "${lastTestStatus}" = "- [- - -]" ]; then
+			# Workaround for some drives that do not support self testing but still report a garbage self test log
+			# Set last test type to 'N/A' and last test hours to null "" in this case.  Do not colorize test status as a failure.
+			if [ "${lastTestType}" == "Default Self" ]; then
+				lastTestType="N/A"
+				lastTestHours=""
 				lastTestStatus="true"
-			else
-				# Workaround for some drives that do not support self testing but still report a garbage self test log
-				# Set last test type to 'N/A' and last test hours to null "" in this case.  Do not colorize test status as a failure.
-				if [ "${lastTestType}" == "Default Self" ]; then
-					lastTestType="N/A"
-					lastTestHours=""
-					lastTestStatus="true"
-				else
-					lastTestStatus="false"
-				fi
 			fi
 
 			# Available for any drive smartd knows about
@@ -1607,7 +1612,18 @@ EOF
 			local uncorrectedWriteErrors="$(echo "${sasInfoSmrt}" | jq -Mre '.write.total_uncorrected_errors | values')"
 			local uncorrectedVerifyErrors="$(echo "${sasInfoSmrt}" | jq -Mre '.verify.total_uncorrected_errors | values')"
 
-			#FixMe: relies on non-json output
+			# Try the non json output if we do not have a value
+			if [ -z "${uncorrectedReadErrors}" ]; then
+				uncorrectedReadErrors="$(echo "${nonJsonSasInfoSmrt}" | grep "read:" | tr -s " " | cut -d ' ' -sf '8')"
+			fi
+			if [ -z "${uncorrectedWriteErrors}" ]; then
+				uncorrectedWriteErrors="$(echo "${nonJsonSasInfoSmrt}" | grep "write:" | tr -s " " | cut -d ' ' -sf '8')"
+			fi
+			if [ -z "${uncorrectedVerifyErrors}" ]; then
+				uncorrectedVerifyErrors="$(echo "${nonJsonSasInfoSmrt}" | grep "verify:" | tr -s " " | cut -d ' ' -sf '8')"
+			fi
+
+			# FixMe: relies on non-json output
 			local nonMediumErrors="$(echo "${nonJsonSasInfoSmrt}" | grep "Non-medium" | tr -s " " | cut -d ' ' -sf '4')"
 			local accumStartStopCycles="$(echo "${nonJsonSasInfoSmrt}" | grep "Accumulated start-stop" | tr -s " " | cut -d ' ' -sf '4')"
 			local accumLoadUnloadCycles="$(echo "${nonJsonSasInfoSmrt}" | grep "Accumulated load-unload" | tr -s " " | cut -d ' ' -sf '4')"
@@ -1691,22 +1707,27 @@ EOF
 				fi
 			fi
 
-			local yrs="$(bc <<< "${onHours} / 8760")"
-			local mos="$(bc <<< "(${onHours} % 8760) / 730")"
-			local dys="$(bc <<< "((${onHours} % 8760) % 730) / 24")"
-			local hrs="$(bc <<< "((${onHours} % 8760) % 730) % 24")"
+			# Handle power on time
+			if [ ! -z "${onHours}" ]; then
+				local yrs="$(bc <<< "${onHours} / 8760")"
+				local mos="$(bc <<< "(${onHours} % 8760) / 730")"
+				local dys="$(bc <<< "((${onHours} % 8760) % 730) / 24")"
+				local hrs="$(bc <<< "((${onHours} % 8760) % 730) % 24")"
 
-			# Set Power-On Time format
-			if [ "${powerTimeFormat}" = "ymdh" ]; then
-				local onTime="${yrs}y ${mos}m ${dys}d ${hrs}h"
-			elif [ "${powerTimeFormat}" = "ymd" ]; then
-				local onTime="${yrs}y ${mos}m ${dys}d"
-			elif [ "${powerTimeFormat}" = "ym" ]; then
-				local onTime="${yrs}y ${mos}m"
-			elif [ "${powerTimeFormat}" = "y" ]; then
-				local onTime="${yrs}y"
+				# Set Power-On Time format
+				if [ "${powerTimeFormat}" = "ymdh" ]; then
+					local onTime="${yrs}y ${mos}m ${dys}d ${hrs}h"
+				elif [ "${powerTimeFormat}" = "ymd" ]; then
+					local onTime="${yrs}y ${mos}m ${dys}d"
+				elif [ "${powerTimeFormat}" = "ym" ]; then
+					local onTime="${yrs}y ${mos}m"
+				elif [ "${powerTimeFormat}" = "y" ]; then
+					local onTime="${yrs}y"
+				else
+					local onTime="${yrs}y ${mos}m ${dys}d ${hrs}h"
+				fi
 			else
-				local onTime="${yrs}y ${mos}m ${dys}d ${hrs}h"
+				local onTime="N/A: Drive not supported by smartctl"
 			fi
 
 			# Set the row background color
