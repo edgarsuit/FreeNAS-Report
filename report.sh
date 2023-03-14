@@ -700,9 +700,9 @@ EOF
 			fi
 
 			# Colorize temp
-			if [ "${temp:=0}" -ge "${ssdTempCrit}" ]; then
+			if [ "${temp:="0"}" -ge "${ssdTempCrit}" ]; then
 				local tempColor="${critColor}"
-			elif [ "${temp:=0}" -ge "${ssdTempWarn}" ]; then
+			elif [ "${temp:="0"}" -ge "${ssdTempWarn}" ]; then
 				local tempColor="${warnColor}"
 			else
 				local tempColor="${bgColor}"
@@ -714,7 +714,7 @@ EOF
 			fi
 
 			# Colorize log errors
-			if [ "${errorsLogs:=0}" -gt "${sectorsCrit}" ]; then
+			if [ "${errorsLogs:-"0"}" -gt "${sectorsCrit}" ]; then
 				local errorsLogsColor="${critColor}"
 			elif [ ! "${errorsLogs}" = "0" ]; then
 				local errorsLogsColor="${warnColor}"
@@ -723,7 +723,7 @@ EOF
 			fi
 
 			# Colorize warnings
-			if [ "${critWarning:=0}" -gt "${sectorsCrit}" ]; then
+			if [ "${critWarning:-"0"}" -gt "${sectorsCrit}" ]; then
 				local critWarningColor="${critColor}"
 			elif [ ! "${critWarning}" = "0" ]; then
 				local critWarningColor="${warnColor}"
@@ -777,7 +777,7 @@ EOF
 			fi
 
 			# Colorize test age
-			if [ "${testAge:=0}" -gt "${testAgeWarn}" ]; then
+			if [ "${testAge:-"0"}" -gt "${testAgeWarn}" ]; then
 				local testAgeColor="${critColor}"
 			else
 				local testAgeColor="${bgColor}"
@@ -1042,7 +1042,7 @@ EOF
 			# Colorize Temp
 			if [ "${temp:="0"}" -ge "${ssdTempCrit}" ]; then
 				local tempColor="${critColor}"
-			elif [ "${temp:=0}" -ge "${ssdTempWarn}" ]; then
+			elif [ "${temp:="0"}" -ge "${ssdTempWarn}" ]; then
 				local tempColor="${warnColor}"
 			else
 				local tempColor="${bgColor}"
@@ -1054,7 +1054,7 @@ EOF
 			fi
 
 			# Colorize Sector Errors
-			if [ "${reAlloc:=0}" -gt "${sectorsCrit}" ]; then
+			if [ "${reAlloc:-"0"}" -gt "${sectorsCrit}" ]; then
 				local reAllocColor="${critColor}"
 			elif [ ! "${reAlloc}" = "0" ]; then
 				local reAllocColor="${warnColor}"
@@ -1063,7 +1063,7 @@ EOF
 			fi
 
 			# Colorize Program Fail
-			if [ "${progFail:=0}" -gt "${sectorsCrit}" ]; then
+			if [ "${progFail:-"0"}" -gt "${sectorsCrit}" ]; then
 				local progFailColor="${critColor}"
 			elif [ ! "${progFail}" = "0" ]; then
 				local progFailColor="${warnColor}"
@@ -1072,7 +1072,7 @@ EOF
 			fi
 
 			# Colorize Erase Fail
-			if [ "${eraseFail:=0}" -gt "${sectorsCrit}" ]; then
+			if [ "${eraseFail:-"0"}" -gt "${sectorsCrit}" ]; then
 				local eraseFailColor="${critColor}"
 			elif [ ! "${eraseFail}" = "0" ]; then
 				local eraseFailColor="${warnColor}"
@@ -1081,7 +1081,7 @@ EOF
 			fi
 
 			# Colorize Offline Uncorrectable
-			if [ "${offlineUnc:=0}" -gt "${sectorsCrit}" ]; then
+			if [ "${offlineUnc:-"0"}" -gt "${sectorsCrit}" ]; then
 				local offlineUncColor="${critColor}"
 			elif [ ! "${offlineUnc}" = "0" ]; then
 				local offlineUncColor="${warnColor}"
@@ -1090,7 +1090,7 @@ EOF
 			fi
 
 			# Colorize CRC Errors
-			if [ ! "${crcErrors:=0}" = "0" ]; then
+			if [ ! "${crcErrors:-"0"}" = "0" ]; then
 				local crcErrorsColor="${warnColor}"
 			else
 				local crcErrorsColor="${bgColor}"
@@ -1134,7 +1134,7 @@ EOF
 			fi
 
 			# Colorize test age
-			if [ "${testAge:-0}" -gt "${testAgeWarn}" ]; then
+			if [ "${testAge:-"0"}" -gt "${testAgeWarn}" ]; then
 				local testAgeColor="${critColor}"
 			else
 				local testAgeColor="${bgColor}"
@@ -1216,7 +1216,7 @@ EOF
 		if [ -z "${rotTst}" ] && [ ! -z "$(echo "${hddInfoSmrt}" | jq -Mre '.ata_smart_attributes.table[]? | select(.name == "Spin_Up_Time") | .id | values')" ]; then
 			rotTst="N/R"
 		fi
-		if [ ! "${rotTst:="0"}" = "0" ] && [ ! "${scsiTst}" = "scsi" ]; then
+		if [ ! "${rotTst:-"0"}" = "0" ] && [ ! "${scsiTst}" = "scsi" ]; then
 			# For each drive detected, run "smartctl -AHijl xselftest,selftest" and parse its output.
 			# After parsing the output, compute other values (last test's age, on time in YY-MM-DD-HH).
 			# After these computations, determine the row's background color (alternating as above, subbing in other colors from the palate as needed).
@@ -1393,7 +1393,7 @@ EOF
 			# Colorize Temp
 			if [ "${temp:="0"}" -ge "${tempCrit}" ]; then
 				local tempColor="${critColor}"
-			elif [ "${temp:=0}" -ge "${tempWarn}" ]; then
+			elif [ "${temp:="0"}" -ge "${tempWarn}" ]; then
 				local tempColor="${warnColor}"
 			else
 				local tempColor="${bgColor}"
@@ -1405,14 +1405,14 @@ EOF
 			fi
 
 			# Colorize Spin Retry Errors
-			if [ ! "${spinRetry:=0}" = "0" ]; then
+			if [ ! "${spinRetry:-"0"}" = "0" ]; then
 				local spinRetryColor="${warnColor}"
 			else
 				local spinRetryColor="${bgColor}"
 			fi
 
 			# Colorize Sector Errors
-			if [ "${reAlloc:=0}" -gt "${sectorsCrit}" ]; then
+			if [ "${reAlloc:-"0"}" -gt "${sectorsCrit}" ]; then
 				local reAllocColor="${critColor}"
 			elif [ ! "${reAlloc}" = "0" ]; then
 				local reAllocColor="${warnColor}"
@@ -1421,14 +1421,14 @@ EOF
 			fi
 
 			# Colorize Sector Event Errors
-			if [ ! "${reAllocEvent:=0}" = "0" ]; then
+			if [ ! "${reAllocEvent:-"0"}" = "0" ]; then
 				local reAllocEventColor="${warnColor}"
 			else
 				local reAllocEventColor="${bgColor}"
 			fi
 
 			# Colorize Pending Sector
-			if [ "${pending:=0}" -gt "${sectorsCrit}" ]; then
+			if [ "${pending:-"0"}" -gt "${sectorsCrit}" ]; then
 				local pendingColor="${critColor}"
 			elif [ ! "${offlineUnc}" = "0" ]; then
 				local pendingColor="${warnColor}"
@@ -1437,7 +1437,7 @@ EOF
 			fi
 
 			# Colorize Offline Uncorrectable
-			if [ "${offlineUnc:=0}" -gt "${sectorsCrit}" ]; then
+			if [ "${offlineUnc:-"0"}" -gt "${sectorsCrit}" ]; then
 				local offlineUncColor="${critColor}"
 			elif [ ! "${offlineUnc}" = "0" ]; then
 				local offlineUncColor="${warnColor}"
@@ -1446,21 +1446,21 @@ EOF
 			fi
 
 			# Colorize CRC Errors
-			if [ ! "${crcErrors:=0}" = "0" ]; then
+			if [ ! "${crcErrors:-"0"}" = "0" ]; then
 				local crcErrorsColor="${warnColor}"
 			else
 				local crcErrorsColor="${bgColor}"
 			fi
 
 			# Colorize Seek Error
-			if [ "${seekErrorHealth:=0}" -lt "100" ]; then
+			if [ "${seekErrorHealth:-"0"}" -lt "100" ]; then
 				local seekErrorHealthColor="${warnColor}"
 			else
 				local seekErrorHealthColor="${bgColor}"
 			fi
 
 			# Colorize test age
-			if [ "${testAge:-0}" -gt "${testAgeWarn}" ]; then
+			if [ "${testAge:-"0"}" -gt "${testAgeWarn}" ]; then
 				local testAgeColor="${critColor}"
 			else
 				local testAgeColor="${bgColor}"
@@ -1600,7 +1600,7 @@ EOF
 			local serial="$(echo "${sasInfoSmrt}" | jq -Mre '.serial_number | values')"
 			local rpm="$(echo "${sasInfoSmrt}" | jq -Mre '.rotation_rate | values')"
 			# SAS drives may be SSDs or HDDs
-			if [ "${rpm:-0}" = "0" ]; then
+			if [ "${rpm:-"0"}" = "0" ]; then
 				rpm="SSD"
 			fi
 			local temp="$(echo "${sasInfoSmrt}" | jq -Mre '.temperature.current | values')"
@@ -1623,7 +1623,7 @@ EOF
 				uncorrectedVerifyErrors="$(echo "${nonJsonSasInfoSmrt}" | grep "verify:" | tr -s " " | cut -d ' ' -sf '8')"
 			fi
 
-			# FixMe: relies on non-json output
+			# FixMe: relies entirely on non-json output
 			local nonMediumErrors="$(echo "${nonJsonSasInfoSmrt}" | grep "Non-medium" | tr -s " " | cut -d ' ' -sf '4')"
 			local accumStartStopCycles="$(echo "${nonJsonSasInfoSmrt}" | grep "Accumulated start-stop" | tr -s " " | cut -d ' ' -sf '4')"
 			local accumLoadUnloadCycles="$(echo "${nonJsonSasInfoSmrt}" | grep "Accumulated load-unload" | tr -s " " | cut -d ' ' -sf '4')"
@@ -1758,7 +1758,7 @@ EOF
 				# SAS SSD
 				if [ "${temp:="0"}" -ge "${ssdTempCrit}" ]; then
 					local tempColor="${critColor}"
-				elif [ "${temp:=0}" -ge "${ssdTempWarn}" ]; then
+				elif [ "${temp:="0"}" -ge "${ssdTempWarn}" ]; then
 					local tempColor="${warnColor}"
 				else
 					local tempColor="${bgColor}"
@@ -1767,7 +1767,7 @@ EOF
 				# SAS HDD
 				if [ "${temp:="0"}" -ge "${tempCrit}" ]; then
 					local tempColor="${critColor}"
-				elif [ "${temp:=0}" -ge "${tempWarn}" ]; then
+				elif [ "${temp:="0"}" -ge "${tempWarn}" ]; then
 					local tempColor="${warnColor}"
 				else
 					local tempColor="${bgColor}"
@@ -1780,37 +1780,37 @@ EOF
 			fi
 
 			# Colorize scsi Grown Defect List Errors
-			if [ "${scsiGrownDefectList:=0}" -gt "${sectorsCrit}" ]; then
+			if [ "${scsiGrownDefectList:-"0"}" -gt "${sectorsCrit}" ]; then
 				local scsiGrownDefectListColor="${critColor}"
-			elif [ ! "${scsiGrownDefectList}" = "0" ]; then
+			elif [ ! "${scsiGrownDefectList:-"0"}" = "0" ]; then
 				local scsiGrownDefectListColor="${warnColor}"
 			else
 				local scsiGrownDefectListColor="${bgColor}"
 			fi
 
 			# Colorize Read Errors
-			if [ ! "${uncorrectedReadErrors:=0}" = "0" ]; then
+			if [ ! "${uncorrectedReadErrors:-"0"}" = "0" ]; then
 				local uncorrectedReadErrorsColor="${warnColor}"
 			else
 				local uncorrectedReadErrorsColor="${bgColor}"
 			fi
 
 			# Colorize Write Errors
-			if [ ! "${uncorrectedWriteErrors:=0}" = "0" ]; then
+			if [ ! "${uncorrectedWriteErrors:-"0"}" = "0" ]; then
 				local uncorrectedWriteErrorsColor="${warnColor}"
 			else
 				local uncorrectedWriteErrorsColor="${bgColor}"
 			fi
 
 			# Colorize Verify Errors
-			if [ ! "${uncorrectedVerifyErrors:=0}" = "0" ]; then
+			if [ ! "${uncorrectedVerifyErrors:-"0"}" = "0" ]; then
 				local uncorrectedVerifyErrorsColor="${warnColor}"
 			else
 				local uncorrectedVerifyErrorsColor="${bgColor}"
 			fi
 
 			# Colorize test age
-			if [ "${testAge:-0}" -gt "${testAgeWarn}" ]; then
+			if [ "${testAge:-"0"}" -gt "${testAgeWarn}" ]; then
 				local testAgeColor="${critColor}"
 			else
 				local testAgeColor="${bgColor}"
@@ -1825,16 +1825,16 @@ EOF
 					<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${serial}</td>
 					<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${rpm}</td>
 					<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${capacity}</td>
-					<td style="text-align:center; background-color:${smartStatusColor}; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${smartStatus}</td>
+					<td style="text-align:center; background-color:${smartStatusColor}; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${smartStatus:-"N/A"}</td>
 					<td style="text-align:center; background-color:${tempColor}; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${temp}</td>
 					<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${onTime}</td>
-					<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${accumStartStopCycles}</td>
-					<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${accumLoadUnloadCycles}</td>
-					<td style="text-align:center; background-color:${scsiGrownDefectListColor}; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${scsiGrownDefectList}</td>
-					<td style="text-align:center; background-color:${uncorrectedReadErrorsColor}; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${uncorrectedReadErrors}</td>
-					<td style="text-align:center; background-color:${uncorrectedWriteErrorsColor}; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${uncorrectedWriteErrors}</td>
-					<td style="text-align:center; background-color:${uncorrectedVerifyErrorsColor}; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${uncorrectedVerifyErrors}</td>
-					<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${nonMediumErrors}</td>
+					<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${accumStartStopCycles:-"N/A"}</td>
+					<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${accumLoadUnloadCycles:-"N/A"}</td>
+					<td style="text-align:center; background-color:${scsiGrownDefectListColor}; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${scsiGrownDefectList:-"N/A"}</td>
+					<td style="text-align:center; background-color:${uncorrectedReadErrorsColor}; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${uncorrectedReadErrors:-"N/A"}</td>
+					<td style="text-align:center; background-color:${uncorrectedWriteErrorsColor}; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${uncorrectedWriteErrors:-"N/A"}</td>
+					<td style="text-align:center; background-color:${uncorrectedVerifyErrorsColor}; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${uncorrectedVerifyErrors:-"N/A"}</td>
+					<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${nonMediumErrors:-"N/A"}</td>
 					<td style="text-align:center; background-color:${testAgeColor}; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${testAge:-"N/A"}</td>
 					<td style="text-align:center; background-color:${lastTestStatusColor}; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${lastTestType:-"N/A"}</td>
 					</tr>
