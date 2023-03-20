@@ -751,7 +751,7 @@ EOF
 			fi
 
 			# Colorize & derive write stats
-			local totalBW="$(bc <<< "scale=1; (${totalLBA} * ${sectorSize}) / (1000^3)" | sed -e 's:^\.:0.:')"
+			local totalBW="$(bc <<< "scale=1; (${totalLBA} * ${sectorSize}) / (1000^4)" | sed -e 's:^\.:0.:')"
 			if (( $(bc -l <<< "${totalBW} > ${totalBWCrit}") )); then
 				local totalBWColor="${critColor}"
 			elif (( $(bc -l <<< "${totalBW} > ${totalBWWarn}") )); then
@@ -766,7 +766,7 @@ EOF
 			fi
 			# Try to not divide by zero
 			if [ ! "0" = "$(bc <<< "scale=1; ${onHours} / 24")" ]; then
-				local bwPerDay="$(bc <<< "scale=1; (((${totalLBA} * ${sectorSize}) / (1000^3)) * 1000) / (${onHours} / 24)" | sed -e 's:^\.:0.:')"
+				local bwPerDay="$(bc <<< "scale=1; (((${totalLBA} * ${sectorSize}) / (1000^4)) * 1000) / (${onHours} / 24)" | sed -e 's:^\.:0.:')"
 				if [ "${bwPerDay}" = "0.0" ]; then
 					bwPerDay="N/A"
 				else
@@ -1601,7 +1601,8 @@ EOF
 			local rpm="$(echo "${sasInfoSmrt}" | jq -Mre '.rotation_rate | values')"
 			# SAS drives may be SSDs or HDDs
 			if [ "${rpm:-"0"}" = "0" ]; then
-				rpm="SSD"
+				local percentUsed="$(echo "${sasInfoSmrt}" | jq -Mre '.scsi_percentage_used_endurance_indicator | values')"
+				rpm="SSD "
 			fi
 			local temp="$(echo "${sasInfoSmrt}" | jq -Mre '.temperature.current | values')"
 			local onHours="$(echo "${sasInfoSmrt}" | jq -Mre '.power_on_time.hours | values')"
