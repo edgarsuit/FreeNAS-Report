@@ -911,6 +911,9 @@ EOF
 			# Get LBA written from the stats page for data written
 			if [ ! -z "$(echo "${ssdInfoSmrt}" | jq -Mre '.ata_device_statistics.pages[0] | values')" ]; then
 				local totalLBA="$(echo "${ssdInfoSmrt}" | jq -Mre '.ata_device_statistics.pages[0].table[] | select(.name == "Logical Sectors Written") | .value | values')"
+			elif [ "$(echo "${ssdInfoSmrt}" | jq -Mre '.ata_smart_attributes.table[] | select(.id == 175) | .name | values')" = "Host_Writes_MiB" ]; then
+				# Fallback for apple SSDs that do not have a stats page
+				local totalLBA="$(bc <<< "($(echo "${ssdInfoSmrt}" | jq -Mre '.ata_smart_attributes.table[] | select(.id == 175) | .raw.value | values') * (1024^2) / ${sectorSize})")"
 			else
 				local totalLBA="0"
 			fi
@@ -1058,7 +1061,7 @@ EOF
 			# Colorize Sector Errors
 			if [ "${reAlloc:-"0"}" -gt "${sectorsCrit}" ]; then
 				local reAllocColor="${critColor}"
-			elif [ ! "${reAlloc}" = "0" ]; then
+			elif [ ! "${reAlloc}" = "0" ] && [ ! -z "${reAlloc}" ]; then
 				local reAllocColor="${warnColor}"
 			else
 				local reAllocColor="${bgColor}"
@@ -1067,7 +1070,7 @@ EOF
 			# Colorize Program Fail
 			if [ "${progFail:-"0"}" -gt "${sectorsCrit}" ]; then
 				local progFailColor="${critColor}"
-			elif [ ! "${progFail}" = "0" ]; then
+			elif [ ! "${progFail}" = "0" ] && [ ! -z "${progFail}" ]; then
 				local progFailColor="${warnColor}"
 			else
 				local progFailColor="${bgColor}"
@@ -1076,7 +1079,7 @@ EOF
 			# Colorize Erase Fail
 			if [ "${eraseFail:-"0"}" -gt "${sectorsCrit}" ]; then
 				local eraseFailColor="${critColor}"
-			elif [ ! "${eraseFail}" = "0" ]; then
+			elif [ ! "${eraseFail}" = "0" ] && [ ! -z "${eraseFail}" ]; then
 				local eraseFailColor="${warnColor}"
 			else
 				local eraseFailColor="${bgColor}"
@@ -1085,7 +1088,7 @@ EOF
 			# Colorize Offline Uncorrectable
 			if [ "${offlineUnc:-"0"}" -gt "${sectorsCrit}" ]; then
 				local offlineUncColor="${critColor}"
-			elif [ ! "${offlineUnc}" = "0" ]; then
+			elif [ ! "${offlineUnc}" = "0" ] && [ ! -z "${offlineUnc}" ]; then
 				local offlineUncColor="${warnColor}"
 			else
 				local offlineUncColor="${bgColor}"
@@ -1155,12 +1158,12 @@ EOF
 					<td style="text-align:center; background-color:${tempColor}; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${temp}</td>
 					<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${onTime}</td>
 					<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${startStop}</td>
-					<td style="text-align:center; background-color:${reAllocColor}; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${reAlloc}</td>
-					<td style="text-align:center; background-color:${progFailColor}; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${progFail}</td>
-					<td style="text-align:center; background-color:${eraseFailColor}; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${eraseFail}</td>
-					<td style="text-align:center; background-color:${offlineUncColor}; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${offlineUnc}</td>
-					<td style="text-align:center; background-color:${crcErrorsColor}; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${crcErrors}</td>
-					<td style="text-align:center; background-color:${wearLevelingColor}; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${wearLeveling:=N/A}%</td>
+					<td style="text-align:center; background-color:${reAllocColor}; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${reAlloc:-N/A}</td>
+					<td style="text-align:center; background-color:${progFailColor}; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${progFail:-N/A}</td>
+					<td style="text-align:center; background-color:${eraseFailColor}; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${eraseFail:-N/A}</td>
+					<td style="text-align:center; background-color:${offlineUncColor}; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${offlineUnc:-N/A}</td>
+					<td style="text-align:center; background-color:${crcErrorsColor}; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${crcErrors:-N/A}</td>
+					<td style="text-align:center; background-color:${wearLevelingColor}; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${wearLeveling:-N/A}%</td>
 					<td style="text-align:center; background-color:${totalBWColor}; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${totalBW}</td>
 					<td style="text-align:center; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${bwPerDay}</td>
 					<td style="text-align:center; background-color:${testAgeColor}; height:25px; border:1px solid black; border-collapse:collapse; font-family:courier;">${testAge:-"N/A"}</td>
