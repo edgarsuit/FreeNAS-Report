@@ -2035,6 +2035,9 @@ fi
 for command in "${commands[@]}"; do
 	if ! type "${command}" &> /dev/null; then
 		echo "${command} is missing, please install" >&2
+		if [ "${command}" = "bc" ]; then
+			echo "If you are on scale see https://ixsystems.atlassian.net/browse/NAS-115175 and https://github.com/dak180/FreeNAS-Report/pull/6#issuecomment-1422618352 for updates on when bc will be included in scale and how to add it in the meantime (this will need to be redone each upgrade)." >&2
+		fi
 		exit 100
 	fi
 done
