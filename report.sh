@@ -2108,7 +2108,7 @@ else
 fi
 
 readarray -t "drives" <<< "$(for drive in ${localDriveList}; do
-	if smartctl -i "/dev/${drive}" | grep -q "SMART support is: Enabled"; then
+	if smartctl -i "/dev/${drive}" | sed -e 's:[[:blank:]]\{1,\}: :g' | grep -q "SMART support is: Enabled"; then
 		printf "%s " "${drive}"
 	elif echo "${drive}" | grep -q "nvme"; then
 		printf "%s " "${drive}"
