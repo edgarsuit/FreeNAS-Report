@@ -926,6 +926,9 @@ EOF
 			elif [ "$(echo "${ssdInfoSmrt}" | jq -Mre '.ata_smart_attributes.table[] | select(.id == 175) | .name | values')" = "Host_Writes_MiB" ]; then
 				# Fallback for apple SSDs that do not have a stats page
 				local totalLBA="$(bc <<< "($(echo "${ssdInfoSmrt}" | jq -Mre '.ata_smart_attributes.table[] | select(.id == 175) | .raw.value | values') * (1024^2) / ${sectorSize})")"
+			elif [ "$(echo "${ssdInfoSmrt}" | jq -Mre '.ata_smart_attributes.table[] | select(.id == 241) | .name | values')" = "Total_LBAs_Written" ]; then
+				# Fallback for seagate SSDs that do not have a stats page
+				local totalLBA="$(echo "${ssdInfoSmrt}" | jq -Mre '.ata_smart_attributes.table[] | select(.id == 241)"
 			else
 				local totalLBA="0"
 			fi
