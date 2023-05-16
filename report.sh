@@ -177,8 +177,16 @@ EOF
 		# Config integrity check passed; copy config db, generate checksums, make .tar.gz archive
 		sqlite3 "/data/freenas-v1.db" ".backup main /tmp/${filename}.db"
 		cp -f "/data/pwenc_secret" "/tmp/"
-		md5sum "/tmp/${filename}.db" > /tmp/config_backup.md5
-		sha256sum "/tmp/${filename}.db" > /tmp/config_backup.sha256
+		if [ ! -z "${MD5SUM}" ]; then
+			${MD5SUM} "/tmp/${filename}.db" > /tmp/config_backup.md5
+		else
+			md5sum "/tmp/${filename}.db" > /tmp/config_backup.md5
+		fi
+		if [ ! -z "${SHA256SUM}" ]; then
+			${SHA256SUM} "/tmp/${filename}.db" > /tmp/config_backup.sha256
+		else
+			sha256sum "/tmp/${filename}.db" > /tmp/config_backup.sha256
+		fi
 		(
 			cd "/tmp/" || exit;
 			tar -czf "${tarfile}" "./${filename}.db" "./config_backup.md5" "./config_backup.sha256" "./pwenc_secret"
@@ -2071,6 +2079,14 @@ upsc
 fi
 for command in "${commands[@]}"; do
 	if ! type "${command}" &> /dev/null; then
+		if [ "${command}" = "md5sum" ] && type "md5" &> /dev/null; then
+			MD5SUM="md5"
+			continue
+		fi
+		if [ "${command}" = "sha256sum" ] && type "sha256" &> /dev/null; then
+			SHA256SUM="sha256"
+			continue
+		fi
 		echo "${command} is missing, please install" >&2
 		if [ "${command}" = "bc" ]; then
 			echo 'If you are on scale see https://ixsystems.atlassian.net/browse/NAS-115175 and https://github.com/dak180/FreeNAS-Report/pull/6#issuecomment-1422618352 for updates on when bc will be included in scale and how to add it in the meantime (this will need to be redone each upgrade).' >&2
