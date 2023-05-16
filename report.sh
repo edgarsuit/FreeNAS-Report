@@ -2044,6 +2044,7 @@ tail
 sendmail
 sort
 tee
+sqlite3
 )
 if [ "${systemType}" = "BSD" ]; then
 commands+=(
@@ -2051,12 +2052,15 @@ glabel
 nvmecontrol
 )
 fi
+if [ "${configBackup}" = "true" ]; then
+commands+=(
+md5sum
+sha256sum
+)
+fi
 if [ "${configBackup}" = "true" ]  || [ "${fileDump}" = "1" ]; then
 commands+=(
 tar
-sqlite3
-md5sum
-sha256sum
 base64
 )
 fi
