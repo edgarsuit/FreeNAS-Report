@@ -1908,7 +1908,7 @@ function ReportUPS () {
 					echo "Real Power: ${ups_realpower}W"
 				fi
 				if [ ! -z "${ups_realpowernominal}" ]; then
-					echo "Real Power: ${ups_realpowernominal}W (nominal)"
+					echo "Real Power: ${ups_realpowernominal}W" '(nominal)'
 				fi
 				if [ ! -z "${ups_inputvoltage}" ]; then
 					echo "Input Voltage: ${ups_inputvoltage}V"
@@ -1928,7 +1928,7 @@ function ReportUPS () {
 			done
 	} >> "${logfile}"
 
-	echo "<br><br>" >> "${logfile}"
+	echo '<br><br>' >> "${logfile}"
 }
 
 function DumpFiles () {
@@ -2069,7 +2069,7 @@ for command in "${commands[@]}"; do
 	if ! type "${command}" &> /dev/null; then
 		echo "${command} is missing, please install" >&2
 		if [ "${command}" = "bc" ]; then
-			echo "If you are on scale see https://ixsystems.atlassian.net/browse/NAS-115175 and https://github.com/dak180/FreeNAS-Report/pull/6#issuecomment-1422618352 for updates on when bc will be included in scale and how to add it in the meantime (this will need to be redone each upgrade)." >&2
+			echo 'If you are on scale see https://ixsystems.atlassian.net/browse/NAS-115175 and https://github.com/dak180/FreeNAS-Report/pull/6#issuecomment-1422618352 for updates on when bc will be included in scale and how to add it in the meantime (this will need to be redone each upgrade).' >&2
 		fi
 		exit 100
 	fi
@@ -2085,8 +2085,8 @@ fi
 
 ###### Auto-generated Parameters
 host="$(hostname -s)"
-fromEmail="$(sqlite3 /data/freenas-v1.db "select em_fromemail from system_email;")"
-fromName="$(sqlite3 /data/freenas-v1.db "select em_fromname from system_email;")"
+fromEmail="$(sqlite3 /data/freenas-v1.db 'select em_fromemail from system_email;')"
+fromName="$(sqlite3 /data/freenas-v1.db 'select em_fromname from system_email;')"
 runDate="$(date '+%s')"
 if [ "${systemType}" = "BSD" ]; then
 	logfile="${logfileLocation}/$(date -r "${runDate}" '+%Y%m%d%H%M%S')_${logfileName}.tmp"
