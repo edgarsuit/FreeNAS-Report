@@ -133,6 +133,7 @@ saveLogfile="true"			# Change to "false" to delete the log file after creation
 ##### Drive Overrides
 # In the form: declare -A _<serial>
 # And then for each override: _<serial>[<value>]="<adjustment>"
+# Replace any - with _ in the serial.
 
 
 
@@ -631,33 +632,37 @@ EOF
 
 			## Make override adjustments
 			{
+			local serialClean
 			local serialMatch
+
+			serialClean="$(sed -e 's:-:_:' <<< "${serial}")"
+
 			# onHours
-			serialMatch="_${serial}[onHours]"
+			serialMatch="_${serialClean}[onHours]"
 			if [ ! -z "${!serialMatch}" ]; then
 				onHours="$(bc <<< "${onHours} ${!serialMatch}")"
 			fi
 
 			# mediaErrors
-			serialMatch="_${serial}[mediaErrors]"
+			serialMatch="_${serialClean}[mediaErrors]"
 			if [ ! -z "${!serialMatch}" ]; then
 				mediaErrors="$(bc <<< "${mediaErrors} ${!serialMatch}")"
 			fi
 
 			# errorsLogs
-			serialMatch="_${serial}[errorsLogs]"
+			serialMatch="_${serialClean}[errorsLogs]"
 			if [ ! -z "${!serialMatch}" ]; then
 				errorsLogs="$(bc <<< "${errorsLogs} ${!serialMatch}")"
 			fi
 
 			# critWarning
-			serialMatch="_${serial}[critWarning]"
+			serialMatch="_${serialClean}[critWarning]"
 			if [ ! -z "${!serialMatch}" ]; then
 				critWarning="$(bc <<< "${critWarning} ${!serialMatch}")"
 			fi
 
 			# wearLeveling
-			serialMatch="_${serial}[wearLeveling]"
+			serialMatch="_${serialClean}[wearLeveling]"
 			if [ ! -z "${!serialMatch}" ]; then
 				wearLeveling="$(bc <<< "${wearLeveling} ${!serialMatch}")"
 			fi
@@ -944,51 +949,55 @@ EOF
 
 			## Make override adjustments
 			{
+			local serialClean
 			local serialMatch
+
+			serialClean="$(sed -e 's:-:_:' <<< "${serial}")"
+
 			# lastTestHours
-			serialMatch="_${serial}[lastTestHours]"
+			serialMatch="_${serialClean}[lastTestHours]"
 			if [ ! -z "${!serialMatch}" ]; then
 				lastTestHours="$(bc <<< "${lastTestHours} ${!serialMatch}")"
 			fi
 
 			# onHours
-			serialMatch="_${serial}[onHours]"
+			serialMatch="_${serialClean}[onHours]"
 			if [ ! -z "${!serialMatch}" ]; then
 				onHours="$(bc <<< "${onHours} ${!serialMatch}")"
 			fi
 
 			# reAlloc
-			serialMatch="_${serial}[reAlloc]"
+			serialMatch="_${serialClean}[reAlloc]"
 			if [ ! -z "${!serialMatch}" ]; then
 				reAlloc="$(bc <<< "${reAlloc} ${!serialMatch}")"
 			fi
 
 			# progFail
-			serialMatch="_${serial}[progFail]"
+			serialMatch="_${serialClean}[progFail]"
 			if [ ! -z "${!serialMatch}" ]; then
 				progFail="$(bc <<< "${progFail} ${!serialMatch}")"
 			fi
 
 			# eraseFail
-			serialMatch="_${serial}[eraseFail]"
+			serialMatch="_${serialClean}[eraseFail]"
 			if [ ! -z "${!serialMatch}" ]; then
 				eraseFail="$(bc <<< "${eraseFail} ${!serialMatch}")"
 			fi
 
 			# offlineUnc
-			serialMatch="_${serial}[offlineUnc]"
+			serialMatch="_${serialClean}[offlineUnc]"
 			if [ ! -z "${!serialMatch}" ]; then
 				offlineUnc="$(bc <<< "${offlineUnc} ${!serialMatch}")"
 			fi
 
 			# crcErrors
-			serialMatch="_${serial}[crcErrors]"
+			serialMatch="_${serialClean}[crcErrors]"
 			if [ ! -z "${!serialMatch}" ]; then
 				crcErrors="$(bc <<< "${crcErrors} ${!serialMatch}")"
 			fi
 
 			# wearLeveling
-			serialMatch="_${serial}[wearLeveling]"
+			serialMatch="_${serialClean}[wearLeveling]"
 			if [ ! -z "${!serialMatch}" ]; then
 				wearLeveling="$(bc <<< "${wearLeveling} ${!serialMatch}")"
 			fi
@@ -1289,57 +1298,61 @@ EOF
 
 			## Make override adjustments
 			{
+			local serialClean
 			local serialMatch
+
+			serialClean="$(sed -e 's:-:_:' <<< "${serial}")"
+
 			# lastTestHours
-			serialMatch="_${serial}[lastTestHours]"
+			serialMatch="_${serialClean}[lastTestHours]"
 			if [ ! -z "${!serialMatch}" ]; then
 				lastTestHours="$(bc <<< "${lastTestHours} ${!serialMatch}")"
 			fi
 
 			# onHours
-			serialMatch="_${serial}[onHours]"
+			serialMatch="_${serialClean}[onHours]"
 			if [ ! -z "${!serialMatch}" ]; then
 				onHours="$(bc <<< "${onHours} ${!serialMatch}")"
 			fi
 
 			# reAlloc
-			serialMatch="_${serial}[reAlloc]"
+			serialMatch="_${serialClean}[reAlloc]"
 			if [ ! -z "${!serialMatch}" ]; then
 				reAlloc="$(bc <<< "${reAlloc} ${!serialMatch}")"
 			fi
 
 			# spinRetry
-			serialMatch="_${serial}[spinRetry]"
+			serialMatch="_${serialClean}[spinRetry]"
 			if [ ! -z "${!serialMatch}" ]; then
 				spinRetry="$(bc <<< "${spinRetry} ${!serialMatch}")"
 			fi
 
 			# reAllocEvent
-			serialMatch="_${serial}[reAllocEvent]"
+			serialMatch="_${serialClean}[reAllocEvent]"
 			if [ ! -z "${!serialMatch}" ]; then
 				reAllocEvent="$(bc <<< "${reAllocEvent} ${!serialMatch}")"
 			fi
 
 			# pending
-			serialMatch="_${serial}[pending]"
+			serialMatch="_${serialClean}[pending]"
 			if [ ! -z "${!serialMatch}" ]; then
 				pending="$(bc <<< "${pending} ${!serialMatch}")"
 			fi
 
 			# offlineUnc
-			serialMatch="_${serial}[offlineUnc]"
+			serialMatch="_${serialClean}[offlineUnc]"
 			if [ ! -z "${!serialMatch}" ]; then
 				offlineUnc="$(bc <<< "${offlineUnc} ${!serialMatch}")"
 			fi
 
 			# crcErrors
-			serialMatch="_${serial}[crcErrors]"
+			serialMatch="_${serialClean}[crcErrors]"
 			if [ ! -z "${!serialMatch}" ]; then
 				crcErrors="$(bc <<< "${crcErrors} ${!serialMatch}")"
 			fi
 
 			# seekErrorHealth
-			serialMatch="_${serial}[seekErrorHealth]"
+			serialMatch="_${serialClean}[seekErrorHealth]"
 			if [ ! -z "${!serialMatch}" ]; then
 				seekErrorHealth="$(bc <<< "${seekErrorHealth} ${!serialMatch}")"
 			fi
@@ -1660,45 +1673,49 @@ EOF
 
 			## Make override adjustments
 			{
+			local serialClean
 			local serialMatch
+
+			serialClean="$(sed -e 's:-:_:' <<< "${serial}")"
+
 			# lastTestHours
-			serialMatch="_${serial}[lastTestHours]"
+			serialMatch="_${serialClean}[lastTestHours]"
 			if [ ! -z "${!serialMatch}" ]; then
 				lastTestHours="$(bc <<< "${lastTestHours} ${!serialMatch}")"
 			fi
 
 			# onHours
-			serialMatch="_${serial}[onHours]"
+			serialMatch="_${serialClean}[onHours]"
 			if [ ! -z "${!serialMatch}" ]; then
 				onHours="$(bc <<< "${onHours} ${!serialMatch}")"
 			fi
 
 			# scsiGrownDefectList
-			serialMatch="_${serial}[scsiGrownDefectList]"
+			serialMatch="_${serialClean}[scsiGrownDefectList]"
 			if [ ! -z "${!serialMatch}" ]; then
 				scsiGrownDefectList="$(bc <<< "${scsiGrownDefectList} ${!serialMatch}")"
 			fi
 
 			# uncorrectedReadErrors
-			serialMatch="_${serial}[uncorrectedReadErrors]"
+			serialMatch="_${serialClean}[uncorrectedReadErrors]"
 			if [ ! -z "${!serialMatch}" ]; then
 				uncorrectedReadErrors="$(bc <<< "${uncorrectedReadErrors} ${!serialMatch}")"
 			fi
 
 			# uncorrectedWriteErrors
-			serialMatch="_${serial}[uncorrectedWriteErrors]"
+			serialMatch="_${serialClean}[uncorrectedWriteErrors]"
 			if [ ! -z "${!serialMatch}" ]; then
 				uncorrectedWriteErrors="$(bc <<< "${uncorrectedWriteErrors} ${!serialMatch}")"
 			fi
 
 			# uncorrectedVerifyErrors
-			serialMatch="_${serial}[uncorrectedVerifyErrors]"
+			serialMatch="_${serialClean}[uncorrectedVerifyErrors]"
 			if [ ! -z "${!serialMatch}" ]; then
 				uncorrectedVerifyErrors="$(bc <<< "${uncorrectedVerifyErrors} ${!serialMatch}")"
 			fi
 
 			# nonMediumErrors
-			serialMatch="_${serial}[nonMediumErrors]"
+			serialMatch="_${serialClean}[nonMediumErrors]"
 			if [ ! -z "${!serialMatch}" ]; then
 				nonMediumErrors="$(bc <<< "${nonMediumErrors} ${!serialMatch}")"
 			fi
