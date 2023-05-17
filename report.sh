@@ -133,7 +133,7 @@ saveLogfile="true"			# Change to "false" to delete the log file after creation
 ##### Drive Overrides
 # In the form: declare -A _<serial>
 # And then for each override: _<serial>[<value>]="<adjustment>"
-# Replace any - with _ in the serial.
+# Replace any non ascii alphanumeric characters with _ in the serial.
 
 
 
@@ -635,7 +635,7 @@ EOF
 			local serialClean
 			local serialMatch
 
-			serialClean="$(sed -e 's:-:_:' <<< "${serial}")"
+			serialClean="$(sed -e 's|[^[:alnum:]]|_|g' <<< "${serial}")"
 
 			# onHours
 			serialMatch="_${serialClean}[onHours]"
@@ -952,7 +952,7 @@ EOF
 			local serialClean
 			local serialMatch
 
-			serialClean="$(sed -e 's:-:_:' <<< "${serial}")"
+			serialClean="$(sed -e 's|[^[:alnum:]]|_|g' <<< "${serial}")"
 
 			# lastTestHours
 			serialMatch="_${serialClean}[lastTestHours]"
@@ -1301,7 +1301,7 @@ EOF
 			local serialClean
 			local serialMatch
 
-			serialClean="$(sed -e 's:-:_:' <<< "${serial}")"
+			serialClean="$(sed -e 's|[^[:alnum:]]|_|g' <<< "${serial}")"
 
 			# lastTestHours
 			serialMatch="_${serialClean}[lastTestHours]"
@@ -1676,7 +1676,7 @@ EOF
 			local serialClean
 			local serialMatch
 
-			serialClean="$(sed -e 's:-:_:' <<< "${serial}")"
+			serialClean="$(sed -e 's|[^[:alnum:]]|_|g' <<< "${serial}")"
 
 			# lastTestHours
 			serialMatch="_${serialClean}[lastTestHours]"
