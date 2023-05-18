@@ -216,6 +216,9 @@ EOF
 
 		# If logfile saving is enabled, copy .tar.gz file to specified location before it (and everything else) is removed below
 		if [ "${saveBackup}" = "true" ]; then
+			if [ ! -d "backupLocation/" ]; then
+				mkdir -p "${backupLocation}/"
+			fi
 			cp "${tarfile}" "${backupLocation}/${filename}.tar.gz"
 		fi
 		rm "/tmp/${filename}.db"
