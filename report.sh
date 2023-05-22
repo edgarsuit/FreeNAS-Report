@@ -2150,13 +2150,24 @@ else
 	# lsblk -n -l -o NAME -E PKNAME | tr '\n' ' '
 fi
 
-readarray -t "drives" <<< "$(for drive in ${localDriveList}; do
-	if smartctl -i "/dev/${drive}" | sed -e 's:[[:blank:]]\{1,\}: :g' | grep -q "SMART support is: Enabled"; then
-		printf "%s " "${drive}"
-	elif echo "${drive}" | grep -q "nvme"; then
-		printf "%s " "${drive}"
-	fi
-done | tr ' ' '\n' | sort -V | sed '/^nvme/!H;//p;$!d;g;s:\n::')"
+if [ "${systemType}" = "BSD" ]; then
+	# This sort breaks on linux when going to four leter drive ids: "sdab"; it works fine for bsd's numbered drive ids though.
+	readarray -t "drives" <<< "$(for drive in ${localDriveList}; do
+		if smartctl -i "/dev/${drive}" | sed -e 's:[[:blank:]]\{1,\}: :g' | grep -q "SMART support is: Enabled"; then
+			printf "%s\n" "${drive}"
+		elif echo "${drive}" | grep -q "nvme"; then
+			printf "%s\n" "${drive}"
+		fi
+	done | sort -V | sed '/^nvme/!H;//p;$!d;g;s:\n::')"
+else
+	readarray -t "drives" <<< "$(for drive in ${localDriveList}; do
+		if smartctl -i "/dev/${drive}" | sed -e 's:[[:blank:]]\{1,\}: :g' | grep -q "SMART support is: Enabled"; then
+			printf "%s\n" "${#drive} ${drive}"
+		elif echo "${drive}" | grep -q "nvme"; then
+			printf "%s\n" "${#drive} ${drive}"
+		fi
+	done | sort -Vbk 1 -k 2 | cut -d ' ' -f 2 | sed '/^nvme/!H;//p;$!d;g;s:\n::')"
+fi
 
 # Toggles the 'ssdExist' flag to true if SSDs are detected in order to add the summary table
 if [ "${includeSSD}" = "true" ]; then
