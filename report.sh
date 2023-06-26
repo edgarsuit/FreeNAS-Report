@@ -2054,7 +2054,7 @@ if [[ "$(uname -mrs)" =~ .*"BSD".* ]]; then
 fi
 
 # Check if needed software is installed.
-PATH="${PATH}:/usr/local/sbin:/usr/local/bin"
+PATH="${PATH}:/usr/local/sbin:/usr/local/bin:$(dirname "${configFile}")/usr/bin/"
 commands=(
 hostname
 date
@@ -2109,7 +2109,7 @@ for command in "${commands[@]}"; do
 		fi
 		echo "${command} is missing, please install" >&2
 		if [ "${command}" = "bc" ]; then
-			echo 'If you are on scale see https://ixsystems.atlassian.net/browse/NAS-115175 and https://github.com/dak180/FreeNAS-Report/pull/6#issuecomment-1422618352 for updates on when bc will be included in scale and how to add it in the meantime (this will need to be redone each upgrade).' >&2
+			echo "If you are on scale see https://ixsystems.atlassian.net/browse/NAS-115175 and https://github.com/dak180/FreeNAS-Report/pull/6#issuecomment-1422618352 for updates on when bc will be included in scale and how to add it in the meantime (this will need to be redone each upgrade or you could put it in: $(dirname "${configFile}")/usr/bin/)." >&2
 		fi
 		exit 100
 	fi
@@ -2348,7 +2348,7 @@ for drive in "${drives[@]}"; do
 			smartctl -H -A -l error "/dev/${drive}"
 			# FixMe: bsd only; still waiting on suport for nvme tests in smartctl
 			if [ "${systemType}" = "BSD" ]; then
-				nvmecontrol logpage -p 0x06 ${drive} | grep '\['
+				nvmecontrol logpage -p 0x06 "${drive}" | grep '\['
 			fi
 			echo '<br><br>'
 		} >> "${logfile}"
