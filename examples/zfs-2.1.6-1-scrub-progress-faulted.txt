@@ -1,0 +1,29 @@
+  pool: data
+ state: DEGRADED
+status: One or more devices are faulted in response to persistent errors.
+	Sufficient replicas exist for the pool to continue functioning in a
+	degraded state.
+action: Replace the faulted device, or use 'zpool clear' to mark the device
+	repaired.
+  scan: scrub in progress since Mon Nov  7 16:49:08 2022
+	13.0T scanned at 897M/s, 12.3T issued at 844M/s, 19.6T total
+	0B repaired, 62.53% done, 02:32:21 to go
+config:
+
+	NAME                                            STATE     READ WRITE CKSUM
+	data                                            DEGRADED     0     0     0
+	  raidz3-0                                      DEGRADED     0     0     0
+	    gptid/9ad22988-32e1-11ec-ba66-d05099c13d03  ONLINE       0     0     0
+	    gptid/4543d53c-584a-11ed-9456-d05099c13d03  FAULTED     17   134     0  too many errors
+	    gptid/9b844178-2482-11ec-8714-d05099c13d03  ONLINE       0     0     0
+	    gptid/f0affe10-321b-11ec-ba66-d05099c13d03  ONLINE       0     0     0
+	    gptid/e5f87be0-27e7-11ec-96bc-d05099c13d03  ONLINE       0     0     0
+	    gptid/e9d6ea26-25dc-11ec-8714-d05099c13d03  ONLINE       0     0     0
+	    gptid/a02741cb-2527-11ec-8714-d05099c13d03  ONLINE       0     0     0
+	    gptid/33fe635d-2713-11ec-8714-d05099c13d03  ONLINE       0     0     0
+	logs	
+	  gptid/d0e8b937-6a7f-11ec-b0e6-d05099c13d03    ONLINE       0     0     0
+	cache
+	  gptid/a228d8bb-56ec-11eb-9900-d05099c13d03    ONLINE       0     0     0
+
+errors: No known data errors
